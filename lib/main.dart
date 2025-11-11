@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ttr_mieduritmo_flutterfrontend/screens/login_screen.dart'; 
+import 'package:ttr_mieduritmo_flutterfrontend/screens/registration_screen.dart'; 
 
 void main() {
   runApp(const MyApp());

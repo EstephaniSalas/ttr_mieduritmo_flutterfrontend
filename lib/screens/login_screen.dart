@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'registration_screen.dart';
 
 // Paleata de colores
 class AppColors {
@@ -243,7 +244,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              print('Navegar a Registro');
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const RegistrationScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'Regístrate aquí.',
