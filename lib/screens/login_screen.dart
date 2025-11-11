@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'registration_screen.dart';
+import 'recuperar_contraseña.dart';
 
 // Paleata de colores
 class AppColors {
@@ -207,7 +208,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
                           suffixIcon: TextButton(
                             onPressed: () {
-                              print('Olvidaste tu contraseña?');
+                              // NAVEGACIÓN A RECUPERACIÓN DE CONTRASEÑA
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  // Asegúrate de usar la clase en español
+                                  builder: (context) => const RecuperarContrasenaScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               '¿Olvidaste tu contraseña?',
