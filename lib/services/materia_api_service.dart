@@ -25,6 +25,9 @@ class MateriasService {
     }
   }
 
+
+
+
   Future<Materia> crearMateria({
     required String userId,
     required String nombreMateria,
@@ -55,7 +58,10 @@ class MateriasService {
     }
   }
 
-    Future<Materia> actualizarMateria({
+
+
+
+  Future<Materia> actualizarMateria({
     required String userId,
     required String materiaId,
     required String nombreMateria,
@@ -82,13 +88,15 @@ class MateriasService {
       final data = resp.data['data'] ?? resp.data['materiaActualizada'];
       return Materia.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e) {
-      final msg =
-          e.response?.data['msg'] ?? 'Error al actualizar materia';
+      final msg = e.response?.data['msg'] ?? 'Error al actualizar materia';
       throw Exception(msg);
     }
   }
 
-    Future<void> eliminarMateria({
+
+
+
+  Future<void> eliminarMateria({
     required String userId,
     required String materiaId,
   }) async {
@@ -100,11 +108,27 @@ class MateriasService {
         },
       );
     } on DioException catch (e) {
-      final msg =
-          e.response?.data['msg'] ?? 'Error al eliminar materia';
+      final msg = e.response?.data['msg'] ?? 'Error al eliminar materia';
       throw Exception(msg);
     }
   }
 
 
+
+  Future<void> eliminarTodasLasMaterias({
+    required String userId,
+  }) async {
+    try {
+      await dio.delete(
+        '/materias/idUsuario/$userId',
+        data: {
+          'confirmacion': true, // mismo patrón que eliminarMateria
+        },
+      );
+    } on DioException catch (e) {
+      final msg =
+          e.response?.data['msg'] ?? 'Error al eliminar todas las materias';
+      throw Exception(msg);
+    }
+  }
 }

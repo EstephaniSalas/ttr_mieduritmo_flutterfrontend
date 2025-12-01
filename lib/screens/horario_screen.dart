@@ -1,3 +1,4 @@
+// lib/screens/horario_screen.dart
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 
@@ -44,8 +45,8 @@ class _HorarioScreenState extends State<HorarioScreen> {
   };
 
   // Rango horario
-  static const int _startHour = 7;   // 07:00
-  static const int _endHour = 18;    // 18:00
+  static const int _startHour = 7; // 07:00
+  static const int _endHour = 18; // 18:00
   static const double _slotHeight = 64.0; // altura “1 hora” en píxeles
 
   // Paleta para materias
@@ -183,15 +184,14 @@ class _HorarioScreenState extends State<HorarioScreen> {
                 salonMateria: payload.salon,
                 horarios: payload.horarios,
               );
-              return updated; // Navigator.pop(updated) lo hará el sheet
+              return updated;
             },
             onDelete: () async {
               await _materiasService.eliminarMateria(
                 userId: widget.usuario.uid,
                 materiaId: materia.id,
               );
-              // Importante: el sheet debe hacer Navigator.pop('deleted')
-              // después de llamar a onDelete.
+              // el sheet hará Navigator.pop('deleted')
             },
           ),
         );
@@ -201,7 +201,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
     if (!mounted) return;
 
     if (result is Materia) {
-      // Actualizada
       setState(() {
         final idx = _materias.indexWhere((m) => m.id == result.id);
         if (idx != -1) {
@@ -215,7 +214,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
         ),
       );
     } else if (result == 'deleted') {
-      // Eliminada
       setState(() {
         _materias.removeWhere((m) => m.id == materia.id);
       });
@@ -226,8 +224,66 @@ class _HorarioScreenState extends State<HorarioScreen> {
         ),
       );
     } else {
-      // Por si el sheet hace la eliminación por su cuenta pero no devuelve nada:
       await _loadMaterias();
+    }
+  }
+
+  Future<void> _confirmDeleteAll() async {
+    if (_materias.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Eliminar todas las materias'),
+          content: const Text(
+            'Se borrarán TODAS las materias de tu horario.\n\n'
+            'Esta acción es permanente y dejará el horario completamente vacío.\n'
+            '¿Quieres continuar?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text(
+                'Eliminar todo',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _materiasService.eliminarTodasLasMaterias(
+        userId: widget.usuario.uid,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _materias.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Se eliminaron todas las materias'),
+          backgroundColor: AppColors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.red,
+        ),
+      );
     }
   }
 
@@ -295,6 +351,14 @@ class _HorarioScreenState extends State<HorarioScreen> {
                     ),
                   ),
                 ),
+                // Botón rojo para borrar todas las materias
+                IconButton(
+                  icon: const Icon(Icons.delete_forever),
+                  color: Colors.red,
+                  tooltip: 'Borrar todas las materias',
+                  onPressed: _materias.isEmpty ? null : _confirmDeleteAll,
+                ),
+                const SizedBox(width: 4),
                 InkWell(
                   onTap: _openAddMateriaSheet,
                   borderRadius: BorderRadius.circular(24),
@@ -442,7 +506,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
             children: [
               _buildHourColumn(),
               const SizedBox(width: 4),
-              // columnas de días
               for (final d in _dias) _buildDayColumn(d),
             ],
           ),
@@ -490,7 +553,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
         final startMin = _hhmmToMinutes(h.horaInicio);
         final endMin = _hhmmToMinutes(h.horaFin);
 
-        // recorte al rango visible 07:00-18:00
         final dayStart = _startHour * 60;
         final dayEnd = _endHour * 60;
         final clampedStart = startMin.clamp(dayStart, dayEnd);
@@ -516,7 +578,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
     return Expanded(
       child: Column(
         children: [
-          // encabezado "Lun", "Mar", etc.
           SizedBox(
             height: 20,
             child: Center(
@@ -535,19 +596,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
               height: totalHours * _slotHeight,
               child: Stack(
                 children: [
-                  // fondo opcional por hora (solo si quieres líneas guía)
-                  // for (int i = 0; i < totalHours; i++)
-                  //   Positioned(
-                  //     top: i * _slotHeight,
-                  //     left: 0,
-                  //     right: 0,
-                  //     child: Container(
-                  //       height: 1,
-                  //       color: Colors.grey.withOpacity(0.1),
-                  //     ),
-                  //   ),
-
-                  // bloques de materias
                   for (final b in materiasDelDia)
                     Positioned(
                       top: b.top,
@@ -575,26 +623,16 @@ class _HorarioScreenState extends State<HorarioScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              if (b.materia.profesor.isNotEmpty)
-                                Text(
-                                  'Prof. ${b.materia.profesor}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                  ),
-                                ),
                               if (b.materia.salon.isNotEmpty ||
                                   b.materia.edificio.isNotEmpty)
                                 Text(
                                   [
-                                    if (b.materia.salon.isNotEmpty)
-                                      'Salón ${b.materia.salon}',
                                     if (b.materia.edificio.isNotEmpty)
                                       'Edif. ${b.materia.edificio}',
-                                  ].join('\n'),
-                                  maxLines: 2,
+                                    if (b.materia.salon.isNotEmpty)
+                                      'Salón ${b.materia.salon}',
+                                  ].join(' · '),
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -616,7 +654,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
   }
 }
 
-/// Pequeña clase interna para facilitar el cálculo de bloques por día.
 class _BloqueMateria {
   final Materia materia;
   final double top;
