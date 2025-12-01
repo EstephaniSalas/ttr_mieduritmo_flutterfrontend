@@ -44,9 +44,9 @@ class _HorarioScreenState extends State<HorarioScreen> {
     'Dom': 'Domingo',
   };
 
-  // Rango horario
+  // Rango horario dinámico
   int _startHour = 7; // valor por defecto si no hay materias
-  int _endHour = 18; // valor por defecto si no hay materias
+  int _endHour = 18;  // valor por defecto si no hay materias
   static const double _slotHeight = 64.0;
 
   // Paleta para materias
@@ -115,41 +115,40 @@ class _HorarioScreenState extends State<HorarioScreen> {
   }
 
   void _recalculateHourRange() {
-  // Si no hay materias, volvemos al rango default
-  if (_materias.isEmpty) {
-    _startHour = 7;
-    _endHour = 18;
-    return;
-  }
-
-  int minHour = 23;
-  int maxHour = 0;
-
-  for (final m in _materias) {
-    for (final h in m.horarios) {
-      final startMin = _hhmmToMinutes(h.horaInicio);
-      final endMin = _hhmmToMinutes(h.horaFin);
-
-      // hora de inicio redondeada hacia abajo
-      final sHour = startMin ~/ 60;
-      // hora de fin redondeada hacia arriba para cubrir todo el bloque
-      final eHour = (endMin + 59) ~/ 60;
-
-      if (sHour < minHour) minHour = sHour;
-      if (eHour > maxHour) maxHour = eHour;
+    // Si no hay materias, volvemos al rango default
+    if (_materias.isEmpty) {
+      _startHour = 7;
+      _endHour = 18;
+      return;
     }
+
+    int minHour = 23;
+    int maxHour = 0;
+
+    for (final m in _materias) {
+      for (final h in m.horarios) {
+        final startMin = _hhmmToMinutes(h.horaInicio);
+        final endMin = _hhmmToMinutes(h.horaFin);
+
+        // hora de inicio redondeada hacia abajo
+        final sHour = startMin ~/ 60;
+        // hora de fin redondeada hacia arriba para cubrir todo el bloque
+        final eHour = (endMin + 59) ~/ 60;
+
+        if (sHour < minHour) minHour = sHour;
+        if (eHour > maxHour) maxHour = eHour;
+      }
+    }
+
+    if (minHour >= maxHour) {
+      // fallback seguro
+      minHour = 7;
+      maxHour = 18;
+    }
+
+    _startHour = minHour.clamp(0, 23);
+    _endHour = maxHour.clamp(_startHour + 1, 23);
   }
-
-  if (minHour >= maxHour) {
-    // fallback seguro
-    minHour = 7;
-    maxHour = 18;
-  }
-
-  _startHour = minHour.clamp(0, 23);
-  _endHour = maxHour.clamp(_startHour + 1, 23);
-}
-
 
   Future<void> _openAddMateriaSheet() async {
     final nueva = await showModalBottomSheet<Materia?>(
@@ -258,11 +257,21 @@ class _HorarioScreenState extends State<HorarioScreen> {
         _materias.removeWhere((m) => m.id == materia.id);
         _recalculateHourRange();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Materia eliminada exitosamente'),
-          backgroundColor: AppColors.green,
-        ),
+
+      // Mensaje flotante por encima del shell
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            content: const Text('Materia eliminada exitosamente'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Aceptar'),
+              ),
+            ],
+          );
+        },
       );
     } else {
       await _loadMaterias();
@@ -312,11 +321,20 @@ class _HorarioScreenState extends State<HorarioScreen> {
         _recalculateHourRange();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Se eliminaron todas las materias'),
-          backgroundColor: AppColors.green,
-        ),
+      // Mensaje flotante global
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            content: const Text('Se eliminaron todas las materias'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Aceptar'),
+              ),
+            ],
+          );
+        },
       );
     } catch (e) {
       if (!mounted) return;

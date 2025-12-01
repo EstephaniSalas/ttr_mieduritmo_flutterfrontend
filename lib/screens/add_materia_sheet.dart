@@ -45,6 +45,8 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
   final _edificioCtrl = TextEditingController();
   final _salonCtrl = TextEditingController();
 
+  String? _submitError;
+
   final List<String> _diasSemana = const [
     'Lunes',
     'Martes',
@@ -95,6 +97,7 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
         _endTimes[h.dia] = _parse(h.horaFin);
       }
     }
+    _submitError = null;
   }
 
   @override
@@ -161,12 +164,9 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
     }
 
     if (horarios.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona al menos un día y horario válido'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _submitError = 'Selecciona al menos un día y horario válido';
+      });
       return;
     }
 
@@ -181,6 +181,7 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
 
     setState(() {
       _submitting = true;
+      _submitError = null; // limpiar error anterior
     });
 
     try {
@@ -190,18 +191,11 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-        });
-      }
+      setState(() {
+        // aquí te llegará el mensaje del backend (traslapes, etc.)
+        _submitError = e.toString();
+        _submitting = false;
+      });
     }
   }
 
@@ -247,8 +241,9 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
                         _buildTextField(
                           _nombreCtrl,
                           'Nombre de la materia',
-                          validator: (v) =>
-                              v == null || v.trim().isEmpty ? 'Obligatorio' : null,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Obligatorio'
+                              : null,
                         ),
                         const SizedBox(height: 8),
                         _buildTextField(
@@ -335,6 +330,22 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
                 ),
               ),
               const SizedBox(height: 12),
+
+              // Mensaje de error debajo del formulario / botón
+              if (_submitError != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    _submitError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -407,7 +418,7 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
                               await widget.onDelete!.call();
                               if (!mounted) return;
                               // devolvemos la marca 'deleted' para que HorarioScreen
-                              // actualice la lista y muestre el snackbar
+                              // actualice la lista y muestre el mensaje flotante
                               Navigator.of(context).pop('deleted');
                             } catch (e) {
                               if (!mounted) return;
