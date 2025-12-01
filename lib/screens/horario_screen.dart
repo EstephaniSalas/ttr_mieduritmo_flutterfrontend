@@ -45,9 +45,9 @@ class _HorarioScreenState extends State<HorarioScreen> {
   };
 
   // Rango horario
-  static const int _startHour = 7; // 07:00
-  static const int _endHour = 18; // 18:00
-  static const double _slotHeight = 64.0; // altura “1 hora” en píxeles
+  int _startHour = 7; // valor por defecto si no hay materias
+  int _endHour = 18; // valor por defecto si no hay materias
+  static const double _slotHeight = 64.0;
 
   // Paleta para materias
   final Map<String, Color> _colorCache = {};
@@ -82,6 +82,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
           await _materiasService.getMateriasUsuario(widget.usuario.uid);
       setState(() {
         _materias = materias;
+        _recalculateHourRange();
       });
     } catch (e) {
       setState(() {
@@ -112,6 +113,43 @@ class _HorarioScreenState extends State<HorarioScreen> {
     _nextColorIndex++;
     return color;
   }
+
+  void _recalculateHourRange() {
+  // Si no hay materias, volvemos al rango default
+  if (_materias.isEmpty) {
+    _startHour = 7;
+    _endHour = 18;
+    return;
+  }
+
+  int minHour = 23;
+  int maxHour = 0;
+
+  for (final m in _materias) {
+    for (final h in m.horarios) {
+      final startMin = _hhmmToMinutes(h.horaInicio);
+      final endMin = _hhmmToMinutes(h.horaFin);
+
+      // hora de inicio redondeada hacia abajo
+      final sHour = startMin ~/ 60;
+      // hora de fin redondeada hacia arriba para cubrir todo el bloque
+      final eHour = (endMin + 59) ~/ 60;
+
+      if (sHour < minHour) minHour = sHour;
+      if (eHour > maxHour) maxHour = eHour;
+    }
+  }
+
+  if (minHour >= maxHour) {
+    // fallback seguro
+    minHour = 7;
+    maxHour = 18;
+  }
+
+  _startHour = minHour.clamp(0, 23);
+  _endHour = maxHour.clamp(_startHour + 1, 23);
+}
+
 
   Future<void> _openAddMateriaSheet() async {
     final nueva = await showModalBottomSheet<Materia?>(
@@ -149,6 +187,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
     if (nueva != null) {
       setState(() {
         _materias.add(nueva);
+        _recalculateHourRange();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -206,6 +245,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
         if (idx != -1) {
           _materias[idx] = result;
         }
+        _recalculateHourRange();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -216,6 +256,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
     } else if (result == 'deleted') {
       setState(() {
         _materias.removeWhere((m) => m.id == materia.id);
+        _recalculateHourRange();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -268,6 +309,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
       if (!mounted) return;
       setState(() {
         _materias.clear();
+        _recalculateHourRange();
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -427,9 +469,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
                       'Horario escolar',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _modeIndex == 0
-                            ? Colors.white
-                            : Colors.black87,
+                        color: _modeIndex == 0 ? Colors.white : Colors.black87,
                       ),
                     ),
                   ),
@@ -467,9 +507,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
                       'Calendario',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _modeIndex == 1
-                            ? Colors.white
-                            : Colors.black87,
+                        color: _modeIndex == 1 ? Colors.white : Colors.black87,
                       ),
                     ),
                   ),
@@ -517,7 +555,8 @@ class _HorarioScreenState extends State<HorarioScreen> {
   Widget _buildHourColumn() {
     final totalHours = _endHour - _startHour;
 
-    return SizedBox(
+    return Container(
+      margin: const EdgeInsets.only(top: 24), // alinear con encabezado de días
       width: 52,
       child: Column(
         children: List.generate(totalHours + 1, (index) {
