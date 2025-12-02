@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 // Pantallas
 import 'inicio_screen.dart';
 import 'horario_screen.dart';
+import 'tareas_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
   final Usuario usuario;
@@ -34,7 +35,10 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         usuario: widget.usuario,
         dio: widget.dio, // mismo Dio con la cookie del login
       ),
-      const _PlaceholderScreen(titulo: 'Tareas'),
+      TareasScreen(
+        usuario:widget.usuario,
+        dio: widget.dio,
+      ),
       const _PlaceholderScreen(titulo: 'Notas'),
       const _PlaceholderScreen(titulo: 'Estudio'),
     ];
