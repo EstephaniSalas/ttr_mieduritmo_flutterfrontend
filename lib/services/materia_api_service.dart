@@ -79,6 +79,16 @@ class MateriasService {
       'horariosMateria': horarios.map((h) => h.toJson()).toList(),
     };
 
+    if (profesorMateria.trim().isNotEmpty) {
+    body['profesorMateria'] = profesorMateria.trim();
+  }
+  if (edificioMateria.trim().isNotEmpty) {
+    body['edificioMateria'] = edificioMateria.trim();
+  }
+  if (salonMateria.trim().isNotEmpty) {
+    body['salonMateria'] = salonMateria.trim();
+  }
+
     try {
       final resp = await dio.put(
         '/materias/idUsuario/$userId/idMateria/$materiaId',
@@ -88,8 +98,10 @@ class MateriasService {
       final data = resp.data['data'] ?? resp.data['materiaActualizada'];
       return Materia.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e) {
-      final msg = e.response?.data['msg'] ?? 'Error al actualizar materia';
-      throw Exception(msg);
+      final status = e.response?.statusCode;
+    final data = e.response?.data;
+    // debug para ver en pantalla qué contesta Node:
+    throw Exception('Error actualizar (status: $status, data: $data)');
     }
   }
 
@@ -108,8 +120,10 @@ class MateriasService {
         },
       );
     } on DioException catch (e) {
-      final msg = e.response?.data['msg'] ?? 'Error al eliminar materia';
-      throw Exception(msg);
+      final status = e.response?.statusCode;
+    final data = e.response?.data;
+    // debug para ver en pantalla qué contesta Node:
+    throw Exception('Error actualizar (status: $status, data: $data)');
     }
   }
 

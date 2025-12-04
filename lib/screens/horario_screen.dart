@@ -62,6 +62,20 @@ class _HorarioScreenState extends State<HorarioScreen> {
   ];
   int _nextColorIndex = 0;
 
+  Color _variantColor(Color base, int variantIndex) {
+    if (variantIndex <= 0) return base;
+
+    final hsl = HSLColor.fromColor(base);
+
+    final step = 0.10; 
+    final sign = (variantIndex % 2 == 1) ? 1.0 : -1.0;
+    final magnitude = (1 + variantIndex ~/ 2) * step;
+
+    final newLightness = (hsl.lightness + sign * magnitude).clamp(0.25, 0.80);
+
+    return hsl.withLightness(newLightness).toColor();
+  }
+
   double get _timelineHeight => (_endHour - _startHour) * _slotHeight;
 
   @override
@@ -115,9 +129,18 @@ class _HorarioScreenState extends State<HorarioScreen> {
 
   Color _colorForMateria(String id) {
     if (_colorCache.containsKey(id)) return _colorCache[id]!;
-    final color = _palette[_nextColorIndex % _palette.length];
+
+    final index = _nextColorIndex++;
+
+    // 0..(palette.length-1) → colores base
+    // luego se repite paleta pero con variantes de lightness
+    final baseIndex = index % _palette.length;
+    final variantIndex = index ~/ _palette.length; // 0,1,2,...
+
+    final baseColor = _palette[baseIndex];
+    final color = _variantColor(baseColor, variantIndex);
+
     _colorCache[id] = color;
-    _nextColorIndex++;
     return color;
   }
 
