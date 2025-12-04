@@ -85,11 +85,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       );
 
       Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const login.LoginScreen(),
-        ),
-      );
+  context,
+  MaterialPageRoute(
+    builder: (context) => login.LoginScreen(api: UsuarioApiService()),
+  ),
+);
     } catch (e) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(

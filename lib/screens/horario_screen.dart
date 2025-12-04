@@ -1,21 +1,21 @@
 // lib/screens/horario_screen.dart
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
 
 import '../models/materia.dart';
 import '../models/usuario.dart';
 import '../services/materia_api_service.dart';
+import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'add_materia_sheet.dart';
 
 class HorarioScreen extends StatefulWidget {
   final Usuario usuario;
-  final Dio dio; // usamos el mismo Dio del login (con cookie)
+  final UsuarioApiService api; //TOKEN
 
   const HorarioScreen({
     super.key,
     required this.usuario,
-    required this.dio,
+    required this.api,     // TOKEN     
   });
 
   @override
@@ -67,7 +67,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
   @override
   void initState() {
     super.initState();
-    _materiasService = MateriasService(widget.dio);
+    _materiasService = MateriasService(widget.api.dio); //TOKEN
     _loadMaterias();
   }
 

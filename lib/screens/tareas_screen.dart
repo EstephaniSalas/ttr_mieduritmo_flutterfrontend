@@ -5,17 +5,18 @@ import 'package:dio/dio.dart';
 import '../models/usuario.dart';
 import '../models/tarea.dart';
 import '../services/tareas_api_service.dart';
+import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'add_tarea_sheet.dart';
 
 class TareasScreen extends StatefulWidget {
   final Usuario usuario;
-  final Dio dio;
+  final UsuarioApiService api; //TOKEN
 
   const TareasScreen({
     super.key,
     required this.usuario,
-    required this.dio,
+    required this.api, //TOKEN
   });
 
   @override
@@ -35,7 +36,7 @@ class _TareasScreenState extends State<TareasScreen> {
   @override
   void initState() {
     super.initState();
-    _tareasService = TareasService(widget.dio);
+    _tareasService = TareasService(widget.api.dio); //TOKEN
     _cargarTareas();
   }
 

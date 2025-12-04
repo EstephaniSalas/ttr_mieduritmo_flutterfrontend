@@ -1,25 +1,37 @@
 import 'package:dio/dio.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-
 import '../models/usuario.dart';
 import '../config/api_config.dart';
+import 'package:flutter/material.dart'; // Para VoidCallback
 
 class UsuarioApiService {
-  // Este Dio se comparte en toda la app (login, materias, etc.)
-  // y es el que guarda la cookie 'token'
-  final Dio dio;
+  final Dio dio = Dio();
+  String? _token;
 
-  UsuarioApiService()
-      : dio = Dio(
-          BaseOptions(
-            baseUrl: ApiConfig.baseUrl, // http://10.0.2.2:3333/api
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-          ),
-        ) {
-    // Todas las cookies (incluida 'token') se guardan aquí
-    dio.interceptors.add(CookieManager(CookieJar()));
+  VoidCallback? onTokenExpired;
+
+  UsuarioApiService() {
+    dio.options.baseUrl = ApiConfig.baseUrl;
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          // Si hay token, agregarlo SIEMPRE
+          if (_token != null) {
+            options.headers['x-token'] = _token;
+          }
+          return handler.next(options);
+        },
+        onError: (DioException e, handler) {
+          // Si el backend dice 401 → token inválido o expirado
+          if (e.response?.statusCode == 401) {
+            if (onTokenExpired != null) {
+              onTokenExpired!();
+            }
+          }
+          return handler.next(e);
+        },
+      ),
+    );
   }
 
   // ---------- REGISTRO ----------
@@ -41,15 +53,14 @@ class UsuarioApiService {
       );
 
       if (resp.statusCode == 200 || resp.statusCode == 201) {
+        _token = resp.data['token'];                // <-- GUARDAR TOKEN
         return Usuario.fromJson(resp.data['usuario']);
       } else {
-        final msg = resp.data['msg'] ?? 'Error al registrar usuario';
-        throw Exception(msg);
+        throw Exception(resp.data['msg'] ?? 'Error al registrar usuario');
       }
     } on DioException catch (e) {
-      final msg =
-          e.response?.data['msg'] ?? 'Error de conexión al registrar usuario';
-      throw Exception(msg);
+      throw Exception(
+          e.response?.data['msg'] ?? 'Error de conexión al registrar usuario');
     }
   }
 
@@ -68,20 +79,18 @@ class UsuarioApiService {
       );
 
       if (resp.statusCode == 200) {
-        // El backend setea cookie 'token'; CookieManager la guarda en ESTE Dio
+        _token = resp.data['token'];               // <-- GUARDAR TOKEN AQUÍ
         return Usuario.fromJson(resp.data['usuario']);
       } else {
-        final msg = resp.data['msg'] ?? 'Credenciales inválidas';
-        throw Exception(msg);
+        throw Exception(resp.data['msg'] ?? 'Credenciales inválidas');
       }
     } on DioException catch (e) {
-      final msg = e.response?.data['msg'] ??
-          'Error de conexión al iniciar sesión (${e.type})';
-      throw Exception(msg);
+      throw Exception(e.response?.data['msg'] ??
+          'Error de conexión al iniciar sesión (${e.type})');
     }
   }
 
-  // ---------- OBTENER USUARIO POR ID ----------
+  // ---------- OBTENER USUARIO ----------
   Future<Usuario> obtenerUsuarioPorId(String uid) async {
     try {
       final resp = await dio.get('/usuarios/$uid');
@@ -89,13 +98,16 @@ class UsuarioApiService {
       if (resp.statusCode == 200) {
         return Usuario.fromJson(resp.data['usuario']);
       } else {
-        final msg = resp.data['msg'] ?? 'Error al obtener usuario';
-        throw Exception(msg);
+        throw Exception(resp.data['msg'] ?? 'Error al obtener usuario');
       }
     } on DioException catch (e) {
-      final msg =
-          e.response?.data['msg'] ?? 'Error de conexión al obtener usuario';
-      throw Exception(msg);
+      throw Exception(
+          e.response?.data['msg'] ?? 'Error de conexión al obtener usuario');
     }
+  }
+
+  // ---------- LOGOUT ----------
+  Future<void> logout() async {
+    _token = null;
   }
 }

@@ -1,23 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:ttr_mieduritmo_flutterfrontend/screens/login_screen.dart'; 
+import 'screens/login_screen.dart';
+import 'services/usuario_api_service.dart';
+
+// ← Clave global para navegar incluso fuera del contexto
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
-  runApp(const MyApp());
+  final apiService = UsuarioApiService(); // Instancia global
+
+  // ← Cuando el token expire, cerrar sesión automáticamente
+  apiService.onTokenExpired = () {
+    apiService.logout(); // limpia cookie/token
+
+    // Regresas al login desde cualquier pantalla
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(api: apiService),
+      ),
+      (route) => false,
+    );
+  };
+
+  runApp(MyApp(api: apiService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final UsuarioApiService api;
+
+  const MyApp({super.key, required this.api});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MiEduRitmo', 
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      // Usamos LoginScreen como la pantalla de inicio
-      home: const LoginScreen(), 
+      navigatorKey: navigatorKey, // ← NECESARIO para logout global
+      debugShowCheckedModeBanner: false,
+      title: 'MiEduRitmo',
+      home: LoginScreen(api: api),
     );
   }
 }
