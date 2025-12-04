@@ -7,7 +7,7 @@ class UsuarioApiService {
   final Dio dio = Dio();
   String? _token;
 
-  VoidCallback? onTokenExpired;
+  void Function()? onTokenExpired;
 
   UsuarioApiService() {
     dio.options.baseUrl = ApiConfig.baseUrl;
@@ -21,12 +21,10 @@ class UsuarioApiService {
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
-          // Si el backend dice 401 → token inválido o expirado
-          if (e.response?.statusCode == 401) {
-            if (onTokenExpired != null) {
-              onTokenExpired!();
-            }
+         onError: (e, handler) {
+          final status = e.response?.statusCode;
+          if (status == 401 && onTokenExpired != null) {
+            onTokenExpired!();
           }
           return handler.next(e);
         },

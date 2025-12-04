@@ -10,12 +10,12 @@ import 'add_materia_sheet.dart';
 
 class HorarioScreen extends StatefulWidget {
   final Usuario usuario;
-  final UsuarioApiService api; //TOKEN
+  final UsuarioApiService api; // Token
 
   const HorarioScreen({
     super.key,
     required this.usuario,
-    required this.api,     // TOKEN     
+    required this.api,
   });
 
   @override
@@ -29,11 +29,12 @@ class _HorarioScreenState extends State<HorarioScreen> {
   String? _error;
   List<Materia> _materias = [];
 
-  // 0 = Horario escolar, 1 = Calendario (solo visual por ahora)
+  // 0 = Horario escolar, 1 = Calendario
   int _modeIndex = 0;
 
   // Días columnas
   final List<String> _dias = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+
   final Map<String, String> _mapDiaCompleto = const {
     'Lun': 'Lunes',
     'Mar': 'Martes',
@@ -45,11 +46,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
   };
 
   // Rango horario dinámico
-  int _startHour = 7; // valor por defecto si no hay materias
-  int _endHour = 18;  // valor por defecto si no hay materias
+  int _startHour = 7;
+  int _endHour = 18;
   static const double _slotHeight = 64.0;
 
-  // Paleta para materias
+  // Colores
   final Map<String, Color> _colorCache = {};
   final List<Color> _palette = const [
     AppColors.red,
@@ -61,14 +62,21 @@ class _HorarioScreenState extends State<HorarioScreen> {
   ];
   int _nextColorIndex = 0;
 
-  double get _timelineHeight =>
-      (_endHour - _startHour) * _slotHeight; // alto total del grid
+  double get _timelineHeight => (_endHour - _startHour) * _slotHeight;
 
   @override
   void initState() {
     super.initState();
-    _materiasService = MateriasService(widget.api.dio); //TOKEN
-    _loadMaterias();
+    _materiasService = MateriasService(widget.api.dio);
+  }
+
+  /// --- Solución: recargar datos SIEMPRE que regresas al tab ---
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMaterias();
+    });
   }
 
   Future<void> _loadMaterias() async {
@@ -80,6 +88,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
     try {
       final materias =
           await _materiasService.getMateriasUsuario(widget.usuario.uid);
+
       setState(() {
         _materias = materias;
         _recalculateHourRange();
@@ -97,25 +106,22 @@ class _HorarioScreenState extends State<HorarioScreen> {
     }
   }
 
+  // Helpers -------------------------------------------------------
+
   int _hhmmToMinutes(String hhmm) {
-    final parts = hhmm.split(':');
-    final h = int.parse(parts[0]);
-    final m = int.parse(parts[1]);
-    return h * 60 + m;
+    final p = hhmm.split(':');
+    return int.parse(p[0]) * 60 + int.parse(p[1]);
   }
 
-  Color _colorForMateria(String materiaId) {
-    if (_colorCache.containsKey(materiaId)) {
-      return _colorCache[materiaId]!;
-    }
+  Color _colorForMateria(String id) {
+    if (_colorCache.containsKey(id)) return _colorCache[id]!;
     final color = _palette[_nextColorIndex % _palette.length];
-    _colorCache[materiaId] = color;
+    _colorCache[id] = color;
     _nextColorIndex++;
     return color;
   }
 
   void _recalculateHourRange() {
-    // Si no hay materias, volvemos al rango default
     if (_materias.isEmpty) {
       _startHour = 7;
       _endHour = 18;
@@ -127,13 +133,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
 
     for (final m in _materias) {
       for (final h in m.horarios) {
-        final startMin = _hhmmToMinutes(h.horaInicio);
-        final endMin = _hhmmToMinutes(h.horaFin);
+        final sMin = _hhmmToMinutes(h.horaInicio);
+        final eMin = _hhmmToMinutes(h.horaFin);
 
-        // hora de inicio redondeada hacia abajo
-        final sHour = startMin ~/ 60;
-        // hora de fin redondeada hacia arriba para cubrir todo el bloque
-        final eHour = (endMin + 59) ~/ 60;
+        final sHour = sMin ~/ 60;
+        final eHour = (eMin + 59) ~/ 60;
 
         if (sHour < minHour) minHour = sHour;
         if (eHour > maxHour) maxHour = eHour;
@@ -141,7 +145,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
     }
 
     if (minHour >= maxHour) {
-      // fallback seguro
       minHour = 7;
       maxHour = 18;
     }
@@ -149,6 +152,8 @@ class _HorarioScreenState extends State<HorarioScreen> {
     _startHour = minHour.clamp(0, 23);
     _endHour = maxHour.clamp(_startHour + 1, 23);
   }
+
+  // Registrar materia --------------------------------------------
 
   Future<void> _openAddMateriaSheet() async {
     final nueva = await showModalBottomSheet<Materia?>(
@@ -160,13 +165,12 @@ class _HorarioScreenState extends State<HorarioScreen> {
       ),
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: AddMateriaSheet(
             materiaInicial: null,
             onSubmit: (payload) async {
-              final materia = await _materiasService.crearMateria(
+              return await _materiasService.crearMateria(
                 userId: widget.usuario.uid,
                 nombreMateria: payload.nombre,
                 profesorMateria: payload.profesor,
@@ -174,28 +178,28 @@ class _HorarioScreenState extends State<HorarioScreen> {
                 salonMateria: payload.salon,
                 horarios: payload.horarios,
               );
-              return materia;
             },
           ),
         );
       },
     );
 
-    if (!mounted) return;
-
-    if (nueva != null) {
+    if (nueva != null && mounted) {
       setState(() {
         _materias.add(nueva);
         _recalculateHourRange();
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Materia creada correctamente'),
+          content: Text("Materia creada correctamente"),
           backgroundColor: AppColors.green,
         ),
       );
     }
   }
+
+  // Editar materia ----------------------------------------------
 
   Future<void> _openEditMateriaSheet(Materia materia) async {
     final result = await showModalBottomSheet<dynamic>(
@@ -207,13 +211,12 @@ class _HorarioScreenState extends State<HorarioScreen> {
       ),
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: AddMateriaSheet(
             materiaInicial: materia,
             onSubmit: (payload) async {
-              final updated = await _materiasService.actualizarMateria(
+              return await _materiasService.actualizarMateria(
                 userId: widget.usuario.uid,
                 materiaId: materia.id,
                 nombreMateria: payload.nombre,
@@ -222,14 +225,12 @@ class _HorarioScreenState extends State<HorarioScreen> {
                 salonMateria: payload.salon,
                 horarios: payload.horarios,
               );
-              return updated;
             },
             onDelete: () async {
               await _materiasService.eliminarMateria(
                 userId: widget.usuario.uid,
                 materiaId: materia.id,
               );
-              // el sheet hará Navigator.pop('deleted')
             },
           ),
         );
@@ -240,12 +241,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
 
     if (result is Materia) {
       setState(() {
-        final idx = _materias.indexWhere((m) => m.id == result.id);
-        if (idx != -1) {
-          _materias[idx] = result;
-        }
+        final i = _materias.indexWhere((m) => m.id == result.id);
+        if (i != -1) _materias[i] = result;
         _recalculateHourRange();
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Materia actualizada correctamente'),
@@ -258,94 +258,24 @@ class _HorarioScreenState extends State<HorarioScreen> {
         _recalculateHourRange();
       });
 
-      // Mensaje flotante por encima del shell
       await showDialog(
         context: context,
         builder: (ctx) {
           return AlertDialog(
-            content: const Text('Materia eliminada exitosamente'),
+            content: const Text("Materia eliminada exitosamente"),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Aceptar'),
-              ),
+                child: const Text("Aceptar"),
+              )
             ],
           );
         },
       );
-    } else {
-      await _loadMaterias();
     }
   }
 
-  Future<void> _confirmDeleteAll() async {
-    if (_materias.isEmpty) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Eliminar todas las materias'),
-          content: const Text(
-            'Se borrarán TODAS las materias de tu horario.\n\n'
-            'Esta acción es permanente y dejará el horario completamente vacío.\n'
-            '¿Quieres continuar?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text(
-                'Eliminar todo',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      await _materiasService.eliminarTodasLasMaterias(
-        userId: widget.usuario.uid,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _materias.clear();
-        _recalculateHourRange();
-      });
-
-      // Mensaje flotante global
-      await showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            content: const Text('Se eliminaron todas las materias'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Aceptar'),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppColors.red,
-        ),
-      );
-    }
-  }
+  // UI ------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +286,6 @@ class _HorarioScreenState extends State<HorarioScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        centerTitle: false,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black87),
           onPressed: () {},
@@ -365,7 +294,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Buen día, ${widget.usuario.nombre}',
+              "Buen día, ${widget.usuario.nombre}",
               style: const TextStyle(
                 color: Colors.black87,
                 fontSize: 16,
@@ -373,7 +302,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
               ),
             ),
             const Text(
-              'Así se ve tu semana',
+              "Así se ve tu semana",
               style: TextStyle(
                 color: Colors.black54,
                 fontSize: 12,
@@ -384,13 +313,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 16),
-            child: Center(
-              child: Image(
-                image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
-                height: 28,
-              ),
+            child: Image(
+              image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
+              height: 28,
             ),
-          ),
+          )
         ],
       ),
       body: Column(
@@ -404,21 +331,18 @@ class _HorarioScreenState extends State<HorarioScreen> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Horario escolar',
+                    "Horario escolar",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                // Botón rojo para borrar todas las materias
                 IconButton(
-                  icon: const Icon(Icons.delete_forever),
-                  color: Colors.red,
-                  tooltip: 'Borrar todas las materias',
-                  onPressed: _materias.isEmpty ? null : _confirmDeleteAll,
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  onPressed:
+                      _materias.isEmpty ? null : () => _confirmDeleteAll(),
                 ),
-                const SizedBox(width: 4),
                 InkWell(
                   onTap: _openAddMateriaSheet,
                   borderRadius: BorderRadius.circular(24),
@@ -429,19 +353,14 @@ class _HorarioScreenState extends State<HorarioScreen> {
                       color: Color(0xFF0066FF),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(Icons.add, color: Colors.white),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          Expanded(
-            child: _buildContent(),
-          ),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
@@ -458,81 +377,44 @@ class _HorarioScreenState extends State<HorarioScreen> {
         padding: const EdgeInsets.all(4),
         child: Row(
           children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _modeIndex = 0;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color:
-                        _modeIndex == 0 ? AppColors.black : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: _modeIndex == 0
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            )
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Horario escolar',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _modeIndex == 0 ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _buildToggleButton("Horario escolar", 0),
             const SizedBox(width: 4),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _modeIndex = 1;
-                  });
-                  // lugar para futura pantalla de calendario
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color:
-                        _modeIndex == 1 ? AppColors.black : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: _modeIndex == 1
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            )
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Calendario',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _modeIndex == 1 ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
+            _buildToggleButton("Calendario", 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(String label, int index) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _modeIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: _modeIndex == index ? AppColors.black : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _modeIndex == index
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: _modeIndex == index ? Colors.white : Colors.black87,
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -543,11 +425,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
+      return Center(
         child: Text(
           _error!,
-          style: const TextStyle(color: Colors.red),
+          style: const TextStyle(color: Colors.red, fontSize: 12),
+          textAlign: TextAlign.center,
         ),
       );
     }
@@ -574,21 +456,18 @@ class _HorarioScreenState extends State<HorarioScreen> {
     final totalHours = _endHour - _startHour;
 
     return Container(
-      margin: const EdgeInsets.only(top: 24), // alinear con encabezado de días
+      margin: const EdgeInsets.only(top: 24),
       width: 52,
       child: Column(
-        children: List.generate(totalHours + 1, (index) {
-          final hour = _startHour + index;
+        children: List.generate(totalHours + 1, (i) {
+          final hour = _startHour + i;
           return SizedBox(
             height: _slotHeight,
             child: Align(
               alignment: Alignment.topRight,
               child: Text(
-                '${hour.toString().padLeft(2, '0')}:00',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.black54,
-                ),
+                "${hour.toString().padLeft(2, '0')}:00",
+                style: const TextStyle(color: Colors.black54, fontSize: 11),
               ),
             ),
           );
@@ -601,28 +480,27 @@ class _HorarioScreenState extends State<HorarioScreen> {
     final diaCompleto = _mapDiaCompleto[diaAbrev]!;
     final totalHours = _endHour - _startHour;
 
-    final materiasDelDia = <_BloqueMateria>[];
+    final bloques = <_BloqueMateria>[];
 
     for (final m in _materias) {
       for (final h in m.horarios) {
         if (h.dia != diaCompleto) continue;
 
-        final startMin = _hhmmToMinutes(h.horaInicio);
-        final endMin = _hhmmToMinutes(h.horaFin);
+        final sMin = _hhmmToMinutes(h.horaInicio);
+        final eMin = _hhmmToMinutes(h.horaFin);
 
         final dayStart = _startHour * 60;
         final dayEnd = _endHour * 60;
-        final clampedStart = startMin.clamp(dayStart, dayEnd);
-        final clampedEnd = endMin.clamp(dayStart, dayEnd);
 
-        if (clampedEnd <= clampedStart) continue;
+        final startClamped = sMin.clamp(dayStart, dayEnd);
+        final endClamped = eMin.clamp(dayStart, dayEnd);
 
-        final top =
-            ((clampedStart - dayStart) / 60.0) * _slotHeight; // posición Y
-        final height =
-            ((clampedEnd - clampedStart) / 60.0) * _slotHeight; // alto tarjeta
+        if (endClamped <= startClamped) continue;
 
-        materiasDelDia.add(
+        final top = ((startClamped - dayStart) / 60.0) * _slotHeight;
+        final height = ((endClamped - startClamped) / 60.0) * _slotHeight;
+
+        bloques.add(
           _BloqueMateria(
             materia: m,
             top: top,
@@ -653,7 +531,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
               height: totalHours * _slotHeight,
               child: Stack(
                 children: [
-                  for (final b in materiasDelDia)
+                  for (final b in bloques)
                     Positioned(
                       top: b.top,
                       left: 2,
@@ -662,11 +540,11 @@ class _HorarioScreenState extends State<HorarioScreen> {
                       child: GestureDetector(
                         onTap: () => _openEditMateriaSheet(b.materia),
                         child: Container(
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: _colorForMateria(b.materia.id),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.all(6),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -685,12 +563,10 @@ class _HorarioScreenState extends State<HorarioScreen> {
                                 Text(
                                   [
                                     if (b.materia.edificio.isNotEmpty)
-                                      'Edif. ${b.materia.edificio}',
+                                      "Edif. ${b.materia.edificio}",
                                     if (b.materia.salon.isNotEmpty)
-                                      'Salón ${b.materia.salon}',
-                                  ].join(' · '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                      "Salón ${b.materia.salon}",
+                                  ].join(" · "),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 9,
@@ -709,8 +585,79 @@ class _HorarioScreenState extends State<HorarioScreen> {
       ),
     );
   }
+
+  Future<void> _confirmDeleteAll() async {
+    if (_materias.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Eliminar todas las materias"),
+          content: const Text(
+            "Se borrarán TODAS las materias del horario.\n"
+            "Esta acción es permanente.\n"
+            "¿Continuar?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text(
+                "Eliminar todo",
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _materiasService.eliminarTodasLasMaterias(
+        userId: widget.usuario.uid,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _materias.clear();
+        _recalculateHourRange();
+      });
+
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            content: const Text("Se eliminaron todas las materias"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text("Aceptar"),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    }
+  }
 }
 
+// Clase interna
 class _BloqueMateria {
   final Materia materia;
   final double top;

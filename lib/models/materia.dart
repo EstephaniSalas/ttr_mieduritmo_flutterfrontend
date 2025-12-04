@@ -43,14 +43,14 @@ class Materia {
 
   factory Materia.fromJson(Map<String, dynamic> json) {
     return Materia(
-      id: (json['uid'] ?? json['_id']) as String,
-      nombre: json['nombreMateria'] as String,
-      profesor: (json['profesorMateria'] ?? '') as String,
-      edificio: (json['edificioMateria'] ?? '') as String,
-      salon: (json['salonMateria'] ?? '') as String,
-      horarios: (json['horariosMateria'] as List<dynamic>)
-          .map((h) => HorarioMateria.fromJson(h as Map<String, dynamic>))
-          .toList(),
+      id: json["id"] ?? json["uid"],
+    nombre: json["nombreMateria"] ?? "",
+    profesor: json["profesorMateria"] ?? "",
+    edificio: json["edificioMateria"] ?? "",
+    salon: json["salonMateria"] ?? "",
+    horarios: (json["horariosMateria"] as List<dynamic>)
+        .map((e) => HorarioMateria.fromJson(e))
+        .toList(),
     );
   }
 }
