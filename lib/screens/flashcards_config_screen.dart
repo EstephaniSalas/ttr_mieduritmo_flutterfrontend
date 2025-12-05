@@ -6,7 +6,9 @@ import '../models/materia.dart';
 import '../models/flashcard.dart';
 import '../services/usuario_api_service.dart';
 import '../services/flashcard_api_service.dart';
+
 import '../theme/app_colors.dart';
+import 'flashcards_review_screen.dart';
 
 class FlashcardsConfigScreen extends StatefulWidget {
   final Usuario usuario;
@@ -511,8 +513,27 @@ class _FlashcardsConfigScreenState extends State<FlashcardsConfigScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 onPressed: () {
-                  // Aquí luego conectamos con la pantalla de repaso
-                  // Navigator.push(...);
+                  if (_flashcards.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Primero crea al menos una flashcard para esta materia.'),
+                        backgroundColor: AppColors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FlashcardsReviewScreen(
+                        usuario: widget.usuario,
+                        materia: widget.materia,
+                        flashcards: _flashcards,
+                        api: widget.api, 
+                      ),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.play_arrow),
                 label: const Text(

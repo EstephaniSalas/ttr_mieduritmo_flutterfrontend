@@ -1,3 +1,4 @@
+// lib/services/flashcard_api_service.dart
 import 'package:dio/dio.dart';
 import '../models/materia.dart';
 import '../models/flashcard.dart';
@@ -7,82 +8,62 @@ class FlashcardsService {
 
   FlashcardsService(this.dio); // Constructor simple
 
-Materia _safeParseMateria(Map<String, dynamic> json) {
-  // Crear una copia segura con valores por defecto
-  final safeJson = Map<String, dynamic>.from(json);
-  
-  // Asegurar que todos los campos requeridos tengan valor
-  safeJson['_id'] = json['_id'] ?? json['uid'] ?? '';
-  safeJson['nombreMateria'] = json['nombreMateria'] ?? '';
-  safeJson['profesorMateria'] = json['profesorMateria'] ?? '';
-  safeJson['edificioMateria'] = json['edificioMateria'] ?? '';
-  safeJson['salonMateria'] = json['salonMateria'] ?? '';
-  safeJson['horariosMateria'] = json['horariosMateria'] ?? [];
-  safeJson['usuario'] = json['usuario'] ?? '';
-  
-  try {
-    return Materia.fromJson(safeJson);
-  } catch (e) {
-    print('❌ Error parsing materia: $e');
-    print('📋 JSON problemático: $json');
-    print('📋 JSON seguro: $safeJson');
-    rethrow;
-  }
-}
+  Materia _safeParseMateria(Map<String, dynamic> json) {
+    // Crear una copia segura con valores por defecto
+    final safeJson = Map<String, dynamic>.from(json);
 
+    // Asegurar que todos los campos requeridos tengan valor
+    safeJson['_id'] = json['_id'] ?? json['uid'] ?? '';
+    safeJson['nombreMateria'] = json['nombreMateria'] ?? '';
+    safeJson['profesorMateria'] = json['profesorMateria'] ?? '';
+    safeJson['edificioMateria'] = json['edificioMateria'] ?? '';
+    safeJson['salonMateria'] = json['salonMateria'] ?? '';
+    safeJson['horariosMateria'] = json['horariosMateria'] ?? [];
+    safeJson['usuario'] = json['usuario'] ?? '';
+
+    try {
+      return Materia.fromJson(safeJson);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   /// Materias que tienen al menos una flashcard para el usuario
- Future<List<Materia>> obtenerMateriasConFlashcards({
-  required String userId,
-}) async {
-  try {
-    final resp = await dio.get(
-      '/flashcards/materias/idUsuario/$userId',
-    );
+  Future<List<Materia>> obtenerMateriasConFlashcards({
+    required String userId,
+  }) async {
+    try {
+      final resp = await dio.get(
+        '/flashcards/materias/idUsuario/$userId',
+      );
 
-    final data = resp.data;
-    final list = (data['materias'] as List? ?? []);
-    
-    // SOLUCIÓN SEGURA
-    final List<Materia> result = [];
-    
-    for (var item in list) {
-      final json = item as Map<String, dynamic>;
-      
-      // Debug: imprimir qué campos son null
-      final nullFields = [];
-      if (json['profesorMateria'] == null) nullFields.add('profesorMateria');
-      if (json['edificioMateria'] == null) nullFields.add('edificioMateria');
-      if (json['salonMateria'] == null) nullFields.add('salonMateria');
-      if (json['horariosMateria'] == null) nullFields.add('horariosMateria');
-      
-      if (nullFields.isNotEmpty) {
-        print('⚠️ Campos null en ${json['nombreMateria']}: $nullFields');
+      final data = resp.data;
+      final list = (data['materias'] as List? ?? []);
+
+      final List<Materia> result = [];
+
+      for (var item in list) {
+        final json = item as Map<String, dynamic>;
+
+        // Corregir campos null antes de pasar a fromJson
+        final safeJson = Map<String, dynamic>.from(json);
+        safeJson['profesorMateria'] = json['profesorMateria'] ?? '';
+        safeJson['edificioMateria'] = json['edificioMateria'] ?? '';
+        safeJson['salonMateria'] = json['salonMateria'] ?? '';
+        safeJson['horariosMateria'] = json['horariosMateria'] ?? [];
+
+        try {
+          result.add(Materia.fromJson(safeJson));
+        } catch (e) {
+          // Si una materia viene mal formada, se salta y sigue con las demás
+        }
       }
-      
-      // Corregir campos null antes de pasar a fromJson
-      final safeJson = Map<String, dynamic>.from(json);
-      safeJson['profesorMateria'] = json['profesorMateria'] ?? '';
-      safeJson['edificioMateria'] = json['edificioMateria'] ?? '';
-      safeJson['salonMateria'] = json['salonMateria'] ?? '';
-      safeJson['horariosMateria'] = json['horariosMateria'] ?? [];
-      
-      try {
-        result.add(Materia.fromJson(safeJson));
-      } catch (e) {
-        print('❌ Error incluso con JSON seguro: $e');
-        // Continuar con siguiente materia
-      }
+
+      return result;
+    } catch (e) {
+      rethrow;
     }
-    
-    print('✅ ${result.length} materias procesadas de ${list.length}');
-    return result;
-  } catch (e) {
-    print('❌ Error: $e');
-    rethrow;
   }
-}
-
 
   /// Todas las flashcards por materia
   Future<List<Flashcard>> obtenerFlashcardsPorMateria({
