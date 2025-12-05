@@ -147,12 +147,7 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
-      builder: (ctx, child) {
-        return MediaQuery(
-          data: MediaQuery.of(ctx!).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
+      initialEntryMode: TimePickerEntryMode.dial,
     );
 
     if (picked == null) return;
@@ -253,6 +248,7 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                         ),
                         const SizedBox(height: 4),
                         Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 4,

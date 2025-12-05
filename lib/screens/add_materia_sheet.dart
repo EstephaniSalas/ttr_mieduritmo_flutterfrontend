@@ -120,6 +120,13 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
+      initialEntryMode: TimePickerEntryMode.input,
+      builder: (ctx, child) {
+        return MediaQuery(
+          data: MediaQuery.of(ctx!).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
     if (picked == null) return;
 

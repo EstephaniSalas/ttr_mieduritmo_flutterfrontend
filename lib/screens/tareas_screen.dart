@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 
 import '../models/usuario.dart';
+import '../models/materia.dart';
 import '../models/tarea.dart';
 import '../services/tareas_api_service.dart';
+import '../services/materia_api_service.dart';
 import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'add_tarea_sheet.dart';
@@ -25,6 +27,8 @@ class TareasScreen extends StatefulWidget {
 
 class _TareasScreenState extends State<TareasScreen> {
   late final TareasService _tareasService;
+  late final MateriasService _materiasService;
+  List<Materia> _materias = [];
 
   bool _cargando = false;
   String? _error;
@@ -37,7 +41,13 @@ class _TareasScreenState extends State<TareasScreen> {
   void initState() {
     super.initState();
     _tareasService = TareasService(widget.api.dio); //TOKEN
-    _cargarTareas();
+    _materiasService = MateriasService(widget.api.dio);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _cargarTareas());
   }
 
   Future<void> _cargarTareas() async {
@@ -47,10 +57,17 @@ class _TareasScreenState extends State<TareasScreen> {
     });
 
     try {
-      final tareas =
+      var tareas =
           await _tareasService.obtenerTareasUsuario(widget.usuario.uid);
+      tareas = await _actualizarVencidasSiAplica(tareas);
+
+      // materias del usuario
+      final materias =
+          await _materiasService.getMateriasUsuario(widget.usuario.uid);
+
       setState(() {
         _tareas = tareas;
+        _materias = materias;
       });
     } catch (e) {
       setState(() {
@@ -65,21 +82,104 @@ class _TareasScreenState extends State<TareasScreen> {
     }
   }
 
+  // Cambiar status Pendiente <-> Completada
+  Future<void> _completarTarea(Tarea tarea) async {
+    final nuevoEstatus =
+        tarea.estatusTarea == 'Completada' ? 'Pendiente' : 'Completada';
+
+    try {
+      final actualizada = await _tareasService.cambiarEstatusTarea(
+        userId: widget.usuario.uid,
+        tareaId: tarea.id,
+        estatusTarea: nuevoEstatus, // <- OJO: sin comillas
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        final idx = _tareas.indexWhere((t) => t.id == tarea.id);
+        if (idx != -1) {
+          _tareas[idx] = actualizada;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tarea actualizada'),
+          backgroundColor: AppColors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    }
+  }
+
+  Future<List<Tarea>> _actualizarVencidasSiAplica(List<Tarea> tareas) async {
+    final ahora = DateTime.now();
+    final List<Tarea> resultado = List.of(tareas);
+
+    for (var i = 0; i < resultado.length; i++) {
+      final t = resultado[i];
+
+      if (t.estatusTarea != 'Pendiente') continue;
+      if (!_estaVencida(t, ahora)) continue;
+
+      try {
+        final actualizada = await _tareasService.cambiarEstatusTarea(
+          userId: widget.usuario.uid,
+          tareaId: t.id,
+          estatusTarea: 'Vencida',
+        );
+        resultado[i] = actualizada;
+      } catch (_) {
+        // si falla el PATCH, la dejamos como estaba
+      }
+    }
+
+    resultado.sort((a, b) {
+      final fa = a.fechaEntregaTarea;
+      final fb = b.fechaEntregaTarea;
+      final c = fa.compareTo(fb);
+      if (c != 0) return c;
+      return a.horaEntregaTarea.compareTo(b.horaEntregaTarea);
+    });
+
+    return resultado;
+  }
+
+  bool _estaVencida(Tarea t, DateTime ref) {
+    final f = t.fechaEntregaTarea;
+    final partes = t.horaEntregaTarea.split(':');
+    final h = int.tryParse(partes.elementAt(0)) ?? 0;
+    final m = int.tryParse(partes.elementAt(1)) ?? 0;
+
+    final deadline = DateTime(f.year, f.month, f.day, h, m);
+    return deadline.isBefore(ref);
+  }
+
   // Filtro por pestaña
   List<Tarea> _filtrarPorTab() {
     if (_tabIndex == 3) {
-      // Completado: todo lo que esté en Completada o Vencida
+      // Completado: todo lo que NO esté pendiente
       return _tareas
           .where((t) =>
-              t.estatusTarea == 'Completada' ||
-              t.estatusTarea == 'Vencida')
+              t.estatusTarea == 'Completada' || t.estatusTarea == 'Vencida')
           .toList();
     }
 
     const tipos = ['Tarea', 'Proyecto', 'Examen'];
     final tipo = tipos[_tabIndex];
 
-    return _tareas.where((t) => t.tipoTarea == tipo).toList();
+    // Tareas, Proyectos, Exámenes: solo pendientes
+    return _tareas
+        .where((t) => t.tipoTarea == tipo && t.estatusTarea == 'Pendiente')
+        .toList();
   }
 
   // Prioridad: entrega en los próximos 7 días
@@ -123,7 +223,7 @@ class _TareasScreenState extends State<TareasScreen> {
           ),
           child: AddTareaSheet(
             tareaInicial: null,
-            materias: const [], // más adelante puedes pasar la lista real
+            materias: _materias, // más adelante puedes pasar la lista real
             onSubmit: (payload) async {
               final tarea = await _tareasService.crearTarea(
                 userId: widget.usuario.uid,
@@ -180,7 +280,7 @@ class _TareasScreenState extends State<TareasScreen> {
           ),
           child: AddTareaSheet(
             tareaInicial: tarea,
-            materias: const [], // más adelante puedes pasar la lista real
+            materias: _materias, // más adelante puedes pasar la lista real
             onSubmit: (payload) async {
               final actualizada = await _tareasService.actualizarTarea(
                 userId: widget.usuario.uid,
@@ -478,16 +578,117 @@ class _TareasScreenState extends State<TareasScreen> {
     }
 
     if (_tabIndex == 3) {
-      // Completado: no seccionamos en Prioridad / Todas, solo una lista
+      // Completado: separamos Completadas y Vencidas
+      final completadas =
+          listaTab.where((t) => t.estatusTarea == 'Completada').toList();
+      final vencidas =
+          listaTab.where((t) => t.estatusTarea == 'Vencida').toList();
+
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ListView.separated(
-          itemCount: listaTab.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (ctx, index) {
-            final tarea = listaTab[index];
-            return _buildCardTarea(tarea);
-          },
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (completadas.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                const Divider(),
+                const SizedBox(height: 8),
+                ...completadas
+                    .map((t) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildCardTarea(t, permitirCheck: true),
+                        ))
+                    .toList(),
+              ],
+              if (vencidas.isNotEmpty) ...[
+                if (completadas.isNotEmpty) const SizedBox(height: 16),
+                const Text(
+                  'Vencidas',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Divider(),
+                const SizedBox(height: 8),
+                ...vencidas
+                    .map((t) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildCardTarea(t, permitirCheck: false),
+                        ))
+                    .toList(),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Estas funciones internas no afectan el error, las dejo como están
+    Widget _buildInteractiveCheckLocal(Tarea tarea) {
+      final isCompleted = tarea.estatusTarea == 'Completada';
+
+      return InkWell(
+        onTap: () => _completarTarea(tarea),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isCompleted ? AppColors.green : Colors.grey.shade400,
+              width: 2,
+            ),
+            color:
+                isCompleted ? AppColors.green.withOpacity(0.1) : Colors.white,
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(
+                    Icons.check,
+                    size: 18,
+                    color: AppColors.green,
+                  )
+                : null,
+          ),
+        ),
+      );
+    }
+
+    Widget _buildStatusBoxLocal(Tarea tarea) {
+      IconData iconData;
+      Color iconColor;
+
+      switch (tarea.estatusTarea) {
+        case 'Completada':
+          iconData = Icons.check;
+          iconColor = AppColors.green;
+          break;
+        case 'Vencida':
+          iconData = Icons.close; // tachita para vencida
+          iconColor = AppColors.red;
+          break;
+        default:
+          iconData = Icons.check_box_outline_blank;
+          iconColor = Colors.grey;
+      }
+
+      return Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          color: const Color(0xFFF1F2F6),
+        ),
+        child: Center(
+          child: Icon(
+            iconData,
+            size: 18,
+            color: iconColor,
+          ),
         ),
       );
     }
@@ -516,7 +717,7 @@ class _TareasScreenState extends State<TareasScreen> {
               ...prioridad
                   .map((t) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _buildCardTarea(t),
+                        child: _buildCardTarea(t, permitirCheck: true),
                       ))
                   .toList(),
             ],
@@ -535,7 +736,7 @@ class _TareasScreenState extends State<TareasScreen> {
               ...otras
                   .map((t) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _buildCardTarea(t),
+                        child: _buildCardTarea(t, permitirCheck: true),
                       ))
                   .toList(),
             ],
@@ -545,7 +746,7 @@ class _TareasScreenState extends State<TareasScreen> {
     );
   }
 
-  Widget _buildCardTarea(Tarea tarea) {
+  Widget _buildCardTarea(Tarea tarea, {bool permitirCheck = false}) {
     final color = _colorPorTipo(tarea.tipoTarea);
     final inicial = _inicialMateriaOTipo(tarea);
     final fechaStr = _formatearFecha(tarea.fechaEntregaTarea);
@@ -634,16 +835,77 @@ class _TareasScreenState extends State<TareasScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            // Indicador de estatus (circulo a la derecha)
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: _colorPorEstatus(tarea.estatusTarea),
-                shape: BoxShape.circle,
-              ),
-            ),
+            if (permitirCheck)
+              _buildInteractiveCheck(tarea)
+            else
+              _buildStatusBox(tarea),
           ],
+        ),
+      ),
+    );
+  }
+
+  // NUEVO: versión a nivel de clase de _buildInteractiveCheck
+  Widget _buildInteractiveCheck(Tarea tarea) {
+    final isCompleted = tarea.estatusTarea == 'Completada';
+
+    return InkWell(
+      onTap: () => _completarTarea(tarea),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isCompleted ? AppColors.green : Colors.grey.shade400,
+            width: 2,
+          ),
+          color: isCompleted ? AppColors.green.withOpacity(0.1) : Colors.white,
+        ),
+        child: Center(
+          child: isCompleted
+              ? const Icon(
+                  Icons.check,
+                  size: 18,
+                  color: AppColors.green,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBox(Tarea tarea) {
+    IconData iconData;
+    Color iconColor;
+
+    switch (tarea.estatusTarea) {
+      case 'Completada':
+        iconData = Icons.check;
+        iconColor = AppColors.green;
+        break;
+      case 'Vencida':
+        iconData = Icons.close; // tachado para vencida
+        iconColor = AppColors.red;
+        break;
+      default:
+        iconData = Icons.check_box_outline_blank;
+        iconColor = Colors.grey;
+    }
+
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: const Color(0xFFF1F2F6),
+      ),
+      child: Center(
+        child: Icon(
+          iconData,
+          size: 18,
+          color: iconColor,
         ),
       ),
     );
