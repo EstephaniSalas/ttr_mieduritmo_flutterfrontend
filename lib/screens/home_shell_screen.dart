@@ -5,6 +5,8 @@ import 'inicio_screen.dart';
 import 'horario_screen.dart';
 import 'tareas_screen.dart';
 import 'login_screen.dart';
+import 'notas_screens.dart';
+
 
 class HomeShellScreen extends StatefulWidget {
   final Usuario usuario;
@@ -38,7 +40,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         usuario: widget.usuario,
         api: widget.api,
       ),
-      //NotasScreen(usuario: widget.usuario, api: widget.api),
+      NotasScreen(usuario: widget.usuario, api: widget.api),
       //EstudioScreen(usuario: widget.usuario, api: widget.api),
     ];
 
