@@ -10,12 +10,12 @@ class HorarioMateria {
   });
 
   factory HorarioMateria.fromJson(Map<String, dynamic> json) {
-    return HorarioMateria(
-      dia: json['dia'] as String,
-      horaInicio: json['horaInicio'] as String,
-      horaFin: json['horaFin'] as String,
-    );
-  }
+  return HorarioMateria(
+    dia: json['dia']?.toString() ?? '',
+    horaInicio: json['horaInicio']?.toString() ?? '',
+    horaFin: json['horaFin']?.toString() ?? '',
+  );
+}
 
   Map<String, dynamic> toJson() => {
         'dia': dia,
@@ -42,15 +42,23 @@ class Materia {
   });
 
   factory Materia.fromJson(Map<String, dynamic> json) {
-    return Materia(
-      id: json["id"] ?? json["uid"],
-    nombre: json["nombreMateria"] ?? "",
-    profesor: json["profesorMateria"] ?? "",
-    edificio: json["edificioMateria"] ?? "",
-    salon: json["salonMateria"] ?? "",
-    horarios: (json["horariosMateria"] as List<dynamic>)
-        .map((e) => HorarioMateria.fromJson(e))
-        .toList(),
-    );
-  }
+  // Manejar el ID de forma segura
+  final dynamic idValue = json["id"] ?? json["uid"] ?? json["_id"];
+  final String safeId = idValue?.toString() ?? '';
+  
+  // Manejar horarios de forma segura
+  final horariosData = json["horariosMateria"] as List<dynamic>? ?? [];
+  final List<HorarioMateria> horarios = horariosData
+      .map((e) => HorarioMateria.fromJson(e as Map<String, dynamic>))
+      .toList();
+
+  return Materia(
+    id: safeId,
+    nombre: json["nombreMateria"]?.toString() ?? "",
+    profesor: json["profesorMateria"]?.toString() ?? "",
+    edificio: json["edificioMateria"]?.toString() ?? "",
+    salon: json["salonMateria"]?.toString() ?? "",
+    horarios: horarios,
+  );
+}
 }

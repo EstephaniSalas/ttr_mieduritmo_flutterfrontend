@@ -48,39 +48,59 @@ class _EstudioScreenState extends State<EstudioScreen> {
   }
 
   Future<void> _cargarDatosIniciales() async {
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
+  setState(() {
+    _cargando = true;
+    _error = null;
+  });
 
+
+  List<Materia> materiasUsuario = [];
+  List<Materia> materiasConFlashcards = [];
+  String? errorMensaje;
+
+  // 1) Materias del usuario
+  try {
+    materiasUsuario = await _materiasService.getMateriasUsuario(widget.usuario.uid);
+  } catch (e) {
+    errorMensaje = 'Error al obtener materias del usuario:\n$e';
+  }
+
+  // 2) Materias que ya tienen flashcards
+  try {
+    final materias = await _flashcardsService.obtenerMateriasConFlashcards(
+      userId: widget.usuario.uid,
+    );
+    materiasConFlashcards = materias;
+  } catch (e) {
+    final msg = 'Error al obtener materias con flashcards:\n$e';
+    errorMensaje = errorMensaje == null ? msg : '$errorMensaje\n\n$msg';
+  }
+
+  if (!mounted) return;
+
+  setState(() {
+    _cargando = false;
+    _error = errorMensaje;
+    _materiasUsuario = materiasUsuario;
+    _materiasFlashcards = materiasConFlashcards;
+  });
+  
+}
+  /// Refresca solo las materias que tienen flashcards (después de crear/editar)
+  Future<void> _refrescarMateriasConFlashcards() async {
     try {
-      // 1) materias del usuario (esto sí es crítico)
-      final materiasUsuario =
-          await _materiasService.getMateriasUsuario(widget.usuario.uid);
-
-      // 2) materias con flashcards (si falla, seguimos pero con lista vacía)
-      List<Materia> materiasConFlashcards = [];
-      try {
-        materiasConFlashcards =
-            await _flashcardsService.obtenerMateriasConFlashcards(
-          userId: widget.usuario.uid,
-        );
-      } catch (_) {
-        materiasConFlashcards = [];
-      }
-
+      final materias = await _flashcardsService.obtenerMateriasConFlashcards(
+        userId: widget.usuario.uid,
+      );
+      if (!mounted) return;
       setState(() {
-        _materiasUsuario = materiasUsuario;
-        _materiasFlashcards = materiasConFlashcards;
+        _materiasFlashcards = materias;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = 'Error al actualizar materias con flashcards:\n$e';
       });
-    } finally {
-      if (mounted) {
-        setState(() => _cargando = false);
-      }
     }
   }
 
@@ -142,6 +162,7 @@ class _EstudioScreenState extends State<EstudioScreen> {
 
     if (materiaSeleccionada == null) return;
 
+    // Navegar a la pantalla de configuración de flashcards
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FlashcardsConfigScreen(
@@ -152,19 +173,8 @@ class _EstudioScreenState extends State<EstudioScreen> {
       ),
     );
 
-    // Al volver, intento refrescar solo las materias con flashcards
-    try {
-      final materiasConFlashcards =
-          await _flashcardsService.obtenerMateriasConFlashcards(
-        userId: widget.usuario.uid,
-      );
-      if (!mounted) return;
-      setState(() {
-        _materiasFlashcards = materiasConFlashcards;
-      });
-    } catch (_) {
-      // si falla, dejamos la lista como estaba
-    }
+    // Al volver, refrescamos materias con flashcards
+    await _refrescarMateriasConFlashcards();
   }
 
   @override
@@ -219,21 +229,26 @@ class _EstudioScreenState extends State<EstudioScreen> {
     if (_cargando) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          _error!,
-          style: const TextStyle(color: Colors.red),
-        ),
-      );
-    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Zona de error, pero sin bloquear el resto de la UI
+          if (_error != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(8),
+              color: Colors.red.withOpacity(0.08),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+          ],
+
           Row(
             children: [
               const Expanded(
@@ -280,75 +295,137 @@ class _EstudioScreenState extends State<EstudioScreen> {
 
   /// Grid 2×N de materias con flashcards
   Widget _buildMateriasGrid() {
-    if (_materiasFlashcards.isEmpty) {
-      return const Text(
-        'Aún no has agregado materias a Flashcards.\nPulsa el botón + para comenzar.',
-        style: TextStyle(color: Colors.black54),
-      );
-    }
-
-    final width = MediaQuery.of(context).size.width;
-    final itemWidth = (width - 16 * 2 - 8) / 2;
-
-    final colores = <Color>[
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.pink,
-      Colors.red,
-      Colors.cyan,
-      Colors.purple,
-      Colors.teal,
-    ];
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 10,
-      children: List.generate(_materiasFlashcards.length, (index) {
-        final m = _materiasFlashcards[index];
-        final color = colores[index % colores.length];
-
-        return SizedBox(
-          width: itemWidth,
-          height: 48,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => FlashcardsConfigScreen(
-                    usuario: widget.usuario,
-                    materia: m,
-                    api: widget.api,
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Text(
-                m.nombre,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
+  if (_materiasFlashcards.isEmpty) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      child: Column(
+        children: [
+          Icon(
+            Icons.lightbulb_outline,
+            size: 60,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Aún no has agregado materias a Flashcards',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color.fromARGB(255, 200, 24, 24),
             ),
           ),
-        );
-      }),
+          const SizedBox(height: 8),
+          const Text(
+            'Pulsa el botón + para comenzar',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black45,
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  // Colores para las tarjetas
+  final List<Color> cardColors = [
+    const Color(0xFF4A6FA5), // Azul
+    const Color(0xFF50B848), // Verde
+    const Color(0xFFF6A800), // Amarillo/naranja
+    const Color(0xFFE74C3C), // Rojo
+    const Color(0xFF9B59B6), // Morado
+    const Color(0xFF1ABC9C), // Turquesa
+    const Color(0xFFE67E22), // Naranja
+    const Color(0xFF3498DB), // Azul claro
+  ];
+
+  return GridView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(), // Evita scroll interno
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2, // 2 columnas
+      crossAxisSpacing: 12, // Espacio horizontal entre tarjetas
+      mainAxisSpacing: 12, // Espacio vertical entre tarjetas
+      childAspectRatio: 2, // Proporción ancho/alto
+    ),
+    itemCount: _materiasFlashcards.length,
+    itemBuilder: (context, index) {
+      final materia = _materiasFlashcards[index];
+      final color = cardColors[index % cardColors.length];
+      
+      return GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => FlashcardsConfigScreen(
+                usuario: widget.usuario,
+                materia: materia,
+                api: widget.api,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Efecto de brillo en esquina
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              
+              // Contenido de la tarjeta
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const SizedBox(height: 12),
+                    
+                    // Nombre de la materia
+                    Text(
+                      materia.nombre,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildTiempoEstudioCard() {
     return Container(
@@ -401,6 +478,7 @@ class _EstudioScreenState extends State<EstudioScreen> {
       ),
     );
   }
+
 
   Future<void> _confirmarBorrarTodasFlashcards() async {
     final confirmar = await showDialog<bool>(
