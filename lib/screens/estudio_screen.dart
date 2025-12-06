@@ -1,11 +1,14 @@
 // lib/screens/estudio_screen.dart
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../models/usuario.dart';
 import '../models/materia.dart';
 import '../services/usuario_api_service.dart';
 import '../services/materia_api_service.dart';
 import '../services/flashcard_api_service.dart';
+import '../services/sesion_estudio_api_service.dart';
+
 import '../theme/app_colors.dart';
 import 'flashcards_config_screen.dart';
 
@@ -26,6 +29,7 @@ class EstudioScreen extends StatefulWidget {
 class _EstudioScreenState extends State<EstudioScreen> {
   late final MateriasService _materiasService;
   late final FlashcardsService _flashcardsService;
+    late final SesionEstudioApiService _sesionService;
 
   bool _cargando = false;
   String? _error;
@@ -35,6 +39,11 @@ class _EstudioScreenState extends State<EstudioScreen> {
 
   /// Materias que se mostrarán en la grilla (las que tienen flashcards)
   List<Materia> _materiasFlashcards = [];
+
+  /// Resumen de tiempo de estudio (para la gráfica)
+  List<ResumenDiaEstudio> _resumenDias = [];          
+  bool _cargandoResumen = false;                       
+  String? _errorResumen;  
 
   @override
   void initState() {
