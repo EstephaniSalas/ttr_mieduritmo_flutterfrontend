@@ -43,16 +43,18 @@ class _EstudioScreenState extends State<EstudioScreen> {
   /// Resumen de tiempo de estudio (para la gráfica)
   List<ResumenDiaEstudio> _resumenDias = [];          
   bool _cargandoResumen = false;                       
-  String? _errorResumen;  
+  String? _errorResumen; 
 
   @override
   void initState() {
     super.initState();
     _materiasService = MateriasService(widget.api.dio);
     _flashcardsService = FlashcardsService(widget.api.dio);
+    _sesionService = SesionEstudioApiService(widget.api.dio); 
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _cargarDatosIniciales();
+      _cargarResumenEstudio(); 
     });
   }
 
@@ -185,6 +187,35 @@ class _EstudioScreenState extends State<EstudioScreen> {
     // Al volver, refrescamos materias con flashcards
     await _refrescarMateriasConFlashcards();
   }
+
+
+  Future<void> _cargarResumenEstudio() async {
+    setState(() {
+      _cargandoResumen = true;
+      _errorResumen = null;
+    });
+
+    try {
+      final resumen = await _sesionService.obtenerResumenEstudio(
+        userId: widget.usuario.uid,
+      );
+      if (!mounted) return;
+      setState(() {
+        _resumenDias = resumen;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorResumen = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _cargandoResumen = false;
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -436,7 +467,7 @@ class _EstudioScreenState extends State<EstudioScreen> {
   );
 }
 
-  Widget _buildTiempoEstudioCard() {
+    Widget _buildTiempoEstudioCard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -453,40 +484,152 @@ class _EstudioScreenState extends State<EstudioScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
+        children: [
+          const Text(
             'Tiempo de estudio',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            'Esta gráfica mostrará el tiempo dedicado al repaso de las flashcards por día.',
+          const SizedBox(height: 4),
+          const Text(
+            'Minutos dedicados al repaso de flashcards por día (últimos días).',
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
             ),
           ),
-          SizedBox(height: 16),
-          SizedBox(
-            height: 160,
-            child: Center(
-              child: Text(
-                'Gráfica de tiempo de estudio\n(Pendiente conectar con sesiones)',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.black45,
+          const SizedBox(height: 16),
+
+          if (_cargandoResumen)
+            const SizedBox(
+              height: 160,
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_errorResumen != null)
+            SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  _errorResumen!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.red,
+                  ),
                 ),
               ),
+            )
+          else if (_resumenDias.isEmpty)
+            const SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  'Aún no hay sesiones de estudio registradas.\n'
+                  'Cuando termines un repaso se mostrará aquí.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black45,
+                  ),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 200,
+              child: _buildBarChartTiempo(),
             ),
-          ),
         ],
       ),
     );
   }
+
+    Widget _buildBarChartTiempo() {
+    // Ordenar por fecha ascendente por si el backend no lo hace
+    final datos = List<ResumenDiaEstudio>.from(_resumenDias)
+      ..sort((a, b) => a.fecha.compareTo(b.fecha));
+
+    final maxMinutos = datos
+        .map((e) => e.totalMinutos)
+        .fold<double>(0, (prev, v) => v > prev ? v : prev);
+
+    final grupos = <BarChartGroupData>[];
+
+    for (var i = 0; i < datos.length; i++) {
+      final d = datos[i];
+      grupos.add(
+        BarChartGroupData(
+          x: i,
+          barRods: [
+            BarChartRodData(
+              toY: d.totalMinutos,
+              width: 14,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String _labelFecha(String iso) {
+      // iso = "YYYY-MM-DD" -> "MM-DD"
+      if (iso.length >= 10) {
+        return iso.substring(5); // "MM-DD"
+      }
+      return iso;
+    }
+
+    return BarChart(
+      BarChartData(
+        maxY: maxMinutos == 0 ? 10 : (maxMinutos * 1.2),
+        barGroups: grupos,
+        gridData: FlGridData(show: true, horizontalInterval: 10),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 32,
+              interval: 10,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: const TextStyle(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 32,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= datos.length) {
+                  return const SizedBox.shrink();
+                }
+                final fecha = _labelFecha(datos[index].fecha);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    fecha,
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 
 
   Future<void> _confirmarBorrarTodasFlashcards() async {
