@@ -1,8 +1,8 @@
 class ApiConfig {
   // - Android emulador: 10.0.2.2
   // - Dispositivo físico en misma red: IP local de PC
-  // static const String baseUrl = 'http://10.0.2.2:3333/api'; dev
-  static const String baseUrl = 'https://ttr-26-1-0001-appmieduritmo-production.up.railway.app/api'; //produccion
+   static const String baseUrl = 'http://10.0.2.2:3333/api'; 
+  //static const String baseUrl = 'https://ttr-26-1-0001-appmieduritmo-production.up.railway.app/api'; //produccion
 
   //Rutas usuarios
   static const String usuarios = '$baseUrl/usuarios';

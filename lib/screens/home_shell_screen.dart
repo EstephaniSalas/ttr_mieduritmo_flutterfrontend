@@ -43,12 +43,15 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         api: widget.api,
       ),
       NotasScreen(
-        usuario: widget.usuario, 
+        usuario: widget.usuario,
         api: widget.api
         ),
       EstudioScreen(
-        usuario: widget.usuario, 
+        usuario: widget.usuario,
         api: widget.api),
+      // //CalendarioScreen(
+      //   usuario: widget.usuario,
+      //   api: widget.api),
     ];
 
     return Scaffold(

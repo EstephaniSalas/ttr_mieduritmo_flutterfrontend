@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/materia.dart';
 import '../models/usuario.dart';
+import 'calendario_screen.dart';
 import '../services/materia_api_service.dart';
 import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
@@ -29,7 +30,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
   String? _error;
   List<Materia> _materias = [];
 
-  // 0 = Horario escolar, 1 = Calendario
+  // 0 = Horario escolar, 1 = Calendario (por ahora solo cambia el toggle visual)
   int _modeIndex = 0;
 
   // Días columnas
@@ -67,7 +68,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
 
     final hsl = HSLColor.fromColor(base);
 
-    final step = 0.10; 
+    final step = 0.10;
     final sign = (variantIndex % 2 == 1) ? 1.0 : -1.0;
     final magnitude = (1 + variantIndex ~/ 2) * step;
 
@@ -84,7 +85,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
     _materiasService = MateriasService(widget.api.dio);
   }
 
-  /// --- Solución: recargar datos SIEMPRE que regresas al tab ---
+  /// Recargar datos siempre que entras al tab
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -132,10 +133,8 @@ class _HorarioScreenState extends State<HorarioScreen> {
 
     final index = _nextColorIndex++;
 
-    // 0..(palette.length-1) → colores base
-    // luego se repite paleta pero con variantes de lightness
     final baseIndex = index % _palette.length;
-    final variantIndex = index ~/ _palette.length; // 0,1,2,...
+    final variantIndex = index ~/ _palette.length;
 
     final baseColor = _palette[baseIndex];
     final color = _variantColor(baseColor, variantIndex);
@@ -333,14 +332,29 @@ class _HorarioScreenState extends State<HorarioScreen> {
             ),
           ],
         ),
-        actions: const [
-          Padding(
+        actions: [
+          // Botón de calendario para ir a CalendarioScreen
+          IconButton(
+            icon: const Icon(Icons.calendar_month, color: Colors.black87),
+            tooltip: 'Ver calendario académico',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CalendarioScreen(
+                    usuario: widget.usuario,
+                    api: widget.api,
+                  ),
+                ),
+              );
+            },
+          ),
+          const Padding(
             padding: EdgeInsets.only(right: 16),
             child: Image(
               image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
               height: 28,
             ),
-          )
+          ),
         ],
       ),
       body: Column(
@@ -412,7 +426,24 @@ class _HorarioScreenState extends State<HorarioScreen> {
   Widget _buildToggleButton(String label, int index) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _modeIndex = index),
+        onTap: () {
+          if (index == 0) {
+            // Horario escolar: solo cambia el estado visual
+            setState(() => _modeIndex = 0);
+          } else {
+            // Calendario: marca el toggle y navega a la pantalla de calendario
+            setState(() => _modeIndex = 1);
+
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CalendarioScreen(
+                  usuario: widget.usuario,
+                  api: widget.api,
+                ),
+              ),
+            );
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),
