@@ -423,23 +423,25 @@ class _HorarioScreenState extends State<HorarioScreen> {
     );
   }
 
+// Dentro de _buildModeToggle() de HorarioScreen
   Widget _buildToggleButton(String label, int index) {
     return Expanded(
       child: GestureDetector(
         onTap: () {
           if (index == 0) {
-            // Horario escolar: solo cambia el estado visual
+            // Ya estás en Horario escolar, solo actualiza _modeIndex si lo usas
             setState(() => _modeIndex = 0);
-          } else {
-            // Calendario: marca el toggle y navega a la pantalla de calendario
+          } else if (index == 1) {
+            // Calendario: misma sección, sin animación de cambio de pantalla
             setState(() => _modeIndex = 1);
-
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => CalendarioScreen(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => CalendarioScreen(
                   usuario: widget.usuario,
                   api: widget.api,
                 ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
               ),
             );
           }

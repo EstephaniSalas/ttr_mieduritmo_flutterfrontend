@@ -1,3 +1,4 @@
+// lib/screens/home_shell_screen.dart
 import 'package:flutter/material.dart';
 import '../models/usuario.dart';
 import '../services/usuario_api_service.dart';
@@ -8,16 +9,18 @@ import 'login_screen.dart';
 import 'notas_screens.dart';
 import 'estudio_screen.dart';
 
-
-
 class HomeShellScreen extends StatefulWidget {
   final Usuario usuario;
   final UsuarioApiService api;
+
+  /// Nuevo: índice inicial del bottom nav (0..4)
+  final int initialIndex;
 
   const HomeShellScreen({
     super.key,
     required this.usuario,
     required this.api,
+    this.initialIndex = 0, // por defecto "Inicio"
   });
 
   @override
@@ -25,10 +28,16 @@ class HomeShellScreen extends StatefulWidget {
 }
 
 class _HomeShellScreenState extends State<HomeShellScreen> {
-  int index = 0;
+  late int index;
 
   @override
-  Widget build(BuildContext context) { //TOKEN
+  void initState() {
+    super.initState();
+    index = widget.initialIndex; // usamos el índice inicial
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final screens = [
       InicioScreen(
         usuario: widget.usuario,
@@ -44,14 +53,12 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       ),
       NotasScreen(
         usuario: widget.usuario,
-        api: widget.api
-        ),
+        api: widget.api,
+      ),
       EstudioScreen(
         usuario: widget.usuario,
-        api: widget.api),
-      // //CalendarioScreen(
-      //   usuario: widget.usuario,
-      //   api: widget.api),
+        api: widget.api,
+      ),
     ];
 
     return Scaffold(
@@ -91,17 +98,14 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               ),
             ),
           ),
-
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text("Modificar mis datos"),
             onTap: () {
-              // Futuro: abrir pantalla de edicion
+              // Futuro: abrir pantalla de edición
             },
           ),
-
           const Spacer(),
-
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text(
@@ -122,7 +126,6 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               );
             },
           ),
-
           const SizedBox(height: 20),
         ],
       ),

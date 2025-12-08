@@ -34,6 +34,12 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.1.1
   fl_chart: ^0.69.0
+  table_calendar: ^3.1.0
+
+  intl: ^0.19.0
+  flutter_localizations:
+    sdk: flutter
+
 
 
 
