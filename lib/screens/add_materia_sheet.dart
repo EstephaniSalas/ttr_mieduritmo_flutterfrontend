@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/materia.dart';
-import '../theme/app_colors.dart';
-
-import 'package:flutter_time_picker_spinner/flutter_time_picker_spinner.dart';
+import '../theme/app_colors.dart' show AppColors;
 
 class AddMateriaPayload {
   final String? id; // null = crear, no null = editar

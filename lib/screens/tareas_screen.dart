@@ -1,6 +1,5 @@
 // lib/screens/tareas_screen.dart
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
 
 import '../models/usuario.dart';
 import '../models/materia.dart';
