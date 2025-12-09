@@ -31,7 +31,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   late final CalendarioSepApiService _calendarioService;
   late final EventosApiService _eventosService;
 
-   late Usuario _usuario;  
+  late Usuario _usuario;
 
   final _formKeyEvento = GlobalKey<FormState>();
 
@@ -56,7 +56,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
 
-    _usuario = widget.usuario; 
+    _usuario = widget.usuario;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _cargarEventosMes(_focusedDay);
@@ -85,6 +85,227 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     final h = int.tryParse(parts[0]) ?? 0;
     final m = int.tryParse(parts[1]) ?? 0;
     return TimeOfDay(hour: h, minute: m);
+  }
+
+  // Método para mostrar el reloj personalizado
+  Future<TimeOfDay?> _showCustomTimePicker({
+    required BuildContext context,
+    required TimeOfDay initialTime,
+  }) async {
+    int hour = initialTime.hour % 12;
+    if (hour == 0) hour = 12;
+    int minute = initialTime.minute;
+    bool isAm = initialTime.hour < 12;
+
+    // Asegurarnos que los minutos sean múltiplos de 5
+    minute = (minute ~/ 5) * 5;
+
+    final result = await showDialog<TimeOfDay>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Seleccionar hora', textAlign: TextAlign.center),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: SingleChildScrollView(
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return SizedBox(
+                  width: double.maxFinite,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Selector de hora y minutos
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Hora
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_drop_up),
+                                onPressed: () {
+                                  setState(() {
+                                    hour = hour == 12 ? 1 : hour + 1;
+                                  });
+                                },
+                              ),
+                              Container(
+                                width: 70,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  border:
+                                      Border.all(color: Colors.blue, width: 2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  hour.toString().padLeft(2, '0'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_drop_down),
+                                onPressed: () {
+                                  setState(() {
+                                    hour = hour == 1 ? 12 : hour - 1;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 4),
+                              const Text('Hora',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(':',
+                                style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          // Minutos
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_drop_up),
+                                onPressed: () {
+                                  setState(() {
+                                    minute = minute == 55 ? 0 : minute + 5;
+                                  });
+                                },
+                              ),
+                              Container(
+                                width: 70,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  border:
+                                      Border.all(color: Colors.blue, width: 2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  minute.toString().padLeft(2, '0'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_drop_down),
+                                onPressed: () {
+                                  setState(() {
+                                    minute = minute == 0 ? 55 : minute - 5;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 4),
+                              const Text('Min',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Botones AM/PM
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                isAm = true;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 24),
+                              decoration: BoxDecoration(
+                                color: isAm ? Colors.blue : Colors.grey[300],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'AM',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isAm ? Colors.white : Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                isAm = false;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 24),
+                              decoration: BoxDecoration(
+                                color: !isAm ? Colors.blue : Colors.grey[300],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'PM',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      !isAm ? Colors.white : Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Convertir a formato 24h
+                int hour24 = hour;
+                if (hour == 12) {
+                  hour24 = isAm ? 0 : 12;
+                } else {
+                  hour24 = isAm ? hour : hour + 12;
+                }
+
+                final selectedTime = TimeOfDay(hour: hour24, minute: minute);
+                Navigator.pop(dialogContext, selectedTime);
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result;
   }
 
   Future<void> _cargarEventosMes(DateTime referencia) async {
@@ -277,10 +498,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                     final initial = horaInicio.isNotEmpty
                                         ? _parseTime(horaInicio)
                                         : const TimeOfDay(hour: 8, minute: 0);
-                                    final picked = await showTimePicker(
+
+                                    final picked = await _showCustomTimePicker(
                                       context: ctx,
                                       initialTime: initial,
                                     );
+
                                     if (picked != null) {
                                       final value = _formatTimeOfDay24(picked);
                                       setModalState(() {
@@ -311,10 +534,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                     final initial = horaFin.isNotEmpty
                                         ? _parseTime(horaFin)
                                         : const TimeOfDay(hour: 9, minute: 0);
-                                    final picked = await showTimePicker(
+
+                                    final picked = await _showCustomTimePicker(
                                       context: ctx,
                                       initialTime: initial,
                                     );
+
                                     if (picked != null) {
                                       final value = _formatTimeOfDay24(picked);
                                       setModalState(() {
@@ -423,8 +648,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                       }
                                     }
                                   },
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.red),
+                                  icon:
+                                      const Icon(Icons.delete, color: Colors.red),
                                   label: const Text(
                                     'Eliminar',
                                     style: TextStyle(color: Colors.red),
@@ -436,8 +661,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.black,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(24),
                                     ),
@@ -455,24 +680,22 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
                                     try {
                                       if (editando) {
-                                        final actualizado =
-                                            await _eventosService
-                                                .actualizarEvento(
+                                        final actualizado = await _eventosService
+                                            .actualizarEvento(
                                           idUsuario: idUsuario,
                                           idEvento: evento!.uid,
                                           titulo: titulo,
                                           descripcion: descripcion,
                                           fecha: fecha,
-                                          horaInicio:
-                                              horaInicioCtrl.text.trim(),
+                                          horaInicio: horaInicioCtrl.text.trim(),
                                           horaFin: horaFinCtrl.text.trim(),
                                           importante: importante,
                                         );
 
                                         if (mounted) {
                                           setState(() {
-                                            final oldKey =
-                                                _normalizar(evento.fechaEvento);
+                                            final oldKey = _normalizar(
+                                                evento.fechaEvento);
                                             final newKey = _normalizar(
                                                 actualizado.fechaEvento);
 
@@ -480,9 +703,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                                 ?.removeWhere(
                                                     (e) => e.uid == evento.uid);
                                             if ((_eventosPersonalesPorDia[
-                                                        oldKey]
-                                                    ?.isEmpty ??
-                                                false)) {
+                                                            oldKey]
+                                                        ?.isEmpty ??
+                                                    false)) {
                                               _eventosPersonalesPorDia
                                                   .remove(oldKey);
                                             }
@@ -511,8 +734,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                           titulo: titulo,
                                           descripcion: descripcion,
                                           fecha: fecha,
-                                          horaInicio:
-                                              horaInicioCtrl.text.trim(),
+                                          horaInicio: horaInicioCtrl.text.trim(),
                                           horaFin: horaFinCtrl.text.trim(),
                                           importante: importante,
                                         );
@@ -777,7 +999,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
             ),
           ],
         ),
-      ),
+      )
     );
   }
 
@@ -925,7 +1147,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
           ),
           const SizedBox(height: 4),
         ],
-      ),
+      )
     );
   }
 
