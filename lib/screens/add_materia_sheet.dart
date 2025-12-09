@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/materia.dart';
 import '../theme/app_colors.dart';
 
+import 'package:flutter_time_picker_spinner/flutter_time_picker_spinner.dart';
+
 class AddMateriaPayload {
   final String? id; // null = crear, no null = editar
   final String nombre;
@@ -109,35 +111,215 @@ class _AddMateriaSheetState extends State<AddMateriaSheet> {
     super.dispose();
   }
 
-  Future<void> _pickTime(
-    String dia,
-    bool isStart,
-  ) async {
-    final now = TimeOfDay.now();
-    final initial =
-        isStart ? (_startTimes[dia] ?? now) : (_endTimes[dia] ?? now);
+  Future<void> _pickTime(String dia, bool isStart) async {
+  final initial = isStart 
+      ? (_startTimes[dia] ?? const TimeOfDay(hour: 9, minute: 0))
+      : (_endTimes[dia] ?? const TimeOfDay(hour: 10, minute: 0));
 
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) {
-        return MediaQuery(
-          data: MediaQuery.of(ctx!).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (picked == null) return;
+  int hour = initial.hour % 12;
+  if (hour == 0) hour = 12;
+  int minute = initial.minute;
+  bool isAm = initial.hour < 12;
 
-    setState(() {
-      if (isStart) {
-        _startTimes[dia] = picked;
-      } else {
-        _endTimes[dia] = picked;
-      }
-    });
-  }
+  await showDialog<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Seleccionar hora', textAlign: TextAlign.center),
+        content: SingleChildScrollView( // Añadido para evitar overflow
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: double.maxFinite, // Ocupar todo el ancho disponible
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // Importante para evitar overflow
+                  children: [
+                    // Selector de hora y minutos
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Hora
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_up),
+                              onPressed: () {
+                                setState(() {
+                                  hour = hour == 12 ? 1 : hour + 1;
+                                });
+                              },
+                            ),
+                            Container(
+                              width: 70, // Un poco más ancho
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.blue, width: 2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                hour.toString().padLeft(2, '0'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              onPressed: () {
+                                setState(() {
+                                  hour = hour == 1 ? 12 : hour - 1;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            const Text('Hora', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(':', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                        ),
+                        
+                        // Minutos
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_up),
+                              onPressed: () {
+                                setState(() {
+                                  minute = minute == 55 ? 0 : minute + 5;
+                                });
+                              },
+                            ),
+                            Container(
+                              width: 70,
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.blue, width: 2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                minute.toString().padLeft(2, '0'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              onPressed: () {
+                                setState(() {
+                                  minute = minute == 0 ? 55 : minute - 5;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            const Text('Min', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Botones AM/PM
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() { 
+                              isAm = true; 
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            decoration: BoxDecoration(
+                              color: isAm ? Colors.blue : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'AM',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isAm ? Colors.white : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() { 
+                              isAm = false; 
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            decoration: BoxDecoration(
+                              color: !isAm ? Colors.blue : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'PM',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: !isAm ? Colors.white : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 8), // Espacio extra al final
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Convertir a formato 24h
+              int hour24 = hour;
+              if (hour == 12) {
+                hour24 = isAm ? 0 : 12;
+              } else {
+                hour24 = isAm ? hour : hour + 12;
+              }
+              
+              final selectedTime = TimeOfDay(hour: hour24, minute: minute);
+              
+              // Necesitamos llamar al setState del widget padre, no del StatefulBuilder
+              if (isStart) {
+                _startTimes[dia] = selectedTime;
+              } else {
+                _endTimes[dia] = selectedTime;
+              }
+              
+              // Llamar al setState del widget padre
+              if (mounted) {
+                setState(() {});
+              }
+              
+              Navigator.pop(context);
+            },
+            child: const Text('Aceptar'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   String _formatTime(TimeOfDay? t) {
     if (t == null) return '--:--';
