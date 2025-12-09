@@ -11,6 +11,8 @@ import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'add_tarea_sheet.dart';
 
+import '../widgets/main_app_bar.dart';
+
 class TareasScreen extends StatefulWidget {
   final Usuario usuario;
   final UsuarioApiService api; //TOKEN
@@ -28,6 +30,9 @@ class TareasScreen extends StatefulWidget {
 class _TareasScreenState extends State<TareasScreen> {
   late final TareasService _tareasService;
   late final MateriasService _materiasService;
+
+  late Usuario _usuario;
+
   List<Materia> _materias = [];
 
   bool _cargando = false;
@@ -42,6 +47,7 @@ class _TareasScreenState extends State<TareasScreen> {
     super.initState();
     _tareasService = TareasService(widget.api.dio); //TOKEN
     _materiasService = MateriasService(widget.api.dio);
+    _usuario = widget.usuario; 
   }
 
   @override
@@ -426,45 +432,15 @@ class _TareasScreenState extends State<TareasScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () {},
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.usuario.nombre,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Text(
-              '¿Terminaste los deberes?',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Center(
-              child: Image(
-                image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
-                height: 28,
-              ),
-            ),
-          ),
-        ],
+      appBar: MainAppBar(
+        usuario: _usuario,
+        api: widget.api,
+        subtitle: "¿Terminaste los pendientes?",
+        onUsuarioActualizado: (nuevoUsuario) {
+          setState(() {
+            _usuario = nuevoUsuario;   // ← refresca el nombre en el header
+          });
+        },
       ),
       body: Column(
         children: [

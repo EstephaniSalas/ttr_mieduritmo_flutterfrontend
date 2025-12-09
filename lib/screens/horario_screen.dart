@@ -9,6 +9,8 @@ import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'add_materia_sheet.dart';
 
+import '../widgets/main_app_bar.dart';
+
 class HorarioScreen extends StatefulWidget {
   final Usuario usuario;
   final UsuarioApiService api; // Token
@@ -25,6 +27,7 @@ class HorarioScreen extends StatefulWidget {
 
 class _HorarioScreenState extends State<HorarioScreen> {
   late final MateriasService _materiasService;
+  late Usuario _usuario; 
 
   bool _loading = false;
   String? _error;
@@ -83,6 +86,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
   void initState() {
     super.initState();
     _materiasService = MateriasService(widget.api.dio);
+    _usuario = widget.usuario;
   }
 
   /// Recargar datos siempre que entras al tab
@@ -300,108 +304,66 @@ class _HorarioScreenState extends State<HorarioScreen> {
   // UI ------------------------------------------------------------
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+Widget build(BuildContext context) {
+  final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () {},
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Buen día, ${widget.usuario.nombre}",
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+  return Scaffold(
+    backgroundColor: const Color(0xFFF5F5F5),
+    appBar: MainAppBar(
+      usuario: _usuario,                 
+      api: widget.api,
+      subtitle: "Así se ve tu semana",
+      onUsuarioActualizado: (nuevoUsuario) {
+        setState(() {
+          _usuario = nuevoUsuario;       
+        });
+      },
+    ),
+    body: Column(
+      children: [
+        const SizedBox(height: 12),
+        _buildModeToggle(theme),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "Horario escolar",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-            const Text(
-              "Así se ve tu semana",
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
+              IconButton(
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                onPressed:
+                    _materias.isEmpty ? null : () => _confirmDeleteAll(),
               ),
-            ),
-          ],
+              InkWell(
+                onTap: _openAddMateriaSheet,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0066FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          // Botón de calendario para ir a CalendarioScreen
-          IconButton(
-            icon: const Icon(Icons.calendar_month, color: Colors.black87),
-            tooltip: 'Ver calendario académico',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => CalendarioScreen(
-                    usuario: widget.usuario,
-                    api: widget.api,
-                  ),
-                ),
-              );
-            },
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Image(
-              image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
-              height: 28,
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
-          _buildModeToggle(theme),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    "Horario escolar",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  onPressed:
-                      _materias.isEmpty ? null : () => _confirmDeleteAll(),
-                ),
-                InkWell(
-                  onTap: _openAddMateriaSheet,
-                  borderRadius: BorderRadius.circular(24),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0066FF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(child: _buildContent()),
-        ],
-      ),
-    );
-  }
+        const SizedBox(height: 8),
+        Expanded(child: _buildContent()),
+      ],
+    ),
+  );
+}
 
   Widget _buildModeToggle(ThemeData theme) {
     return Padding(

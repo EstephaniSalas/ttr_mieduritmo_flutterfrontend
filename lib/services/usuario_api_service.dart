@@ -104,6 +104,48 @@ class UsuarioApiService {
     }
   }
 
+
+  // ---------- ACTUALIZAR USURARIO ---------
+  Future<Usuario> actualizarUsuario({
+    required String id,
+    String? nombre,
+    String? passwordActual,
+    String? passwordNueva,
+    String? passwordNueva2,
+  }) async {
+    final data = <String, dynamic>{};
+
+    if (nombre != null)
+      data['nombre'] = nombre;
+    
+    if (passwordActual != null &&
+        passwordNueva != null &&
+        passwordNueva2 != null) {
+      data['passwordActual'] = passwordActual;
+      data['passwordNueva'] = passwordNueva;
+      data['passwordNueva2'] = passwordNueva2;
+    }
+
+    final url = '${ApiConfig.baseUrl}/usuarios/$id'; 
+
+    try {
+    final resp = await dio.put(url, data: data);
+
+    if (resp.statusCode == 200) {
+      return Usuario.fromJson(resp.data['usuario']);
+    } else {
+      throw Exception(resp.data['msg'] ?? 'Error al actualizar usuario');
+    }
+  } on DioException catch (e) {
+    // para ver exactamente qué responde el backend
+    debugPrint('ERROR actualizarUsuario: ${e.response?.data}');
+    throw Exception(
+      e.response?.data['msg'] ?? 'Error de conexión al actualizar usuario',
+    );
+  }
+}
+
+
   // ---------- LOGOUT ----------
   Future<void> logout() async {
     _token = null;

@@ -8,6 +8,8 @@ import '../services/usuario_api_service.dart';
 import '../theme/app_colors.dart';
 import 'nota_detail_screen.dart';
 
+import '../widgets/main_app_bar.dart';
+
 class NotasScreen extends StatefulWidget {
   final Usuario usuario;
   final UsuarioApiService api;
@@ -25,6 +27,8 @@ class NotasScreen extends StatefulWidget {
 class _NotasScreenState extends State<NotasScreen> {
   late final NotasApiService _notasService;
 
+  late Usuario _usuario; 
+
   bool _cargando = false;
   String? _error;
   List<Nota> _notas = [];
@@ -33,6 +37,7 @@ class _NotasScreenState extends State<NotasScreen> {
   void initState() {
     super.initState();
     _notasService = NotasApiService(widget.api.dio);
+    _usuario = widget.usuario; 
     WidgetsBinding.instance.addPostFrameCallback((_) => _cargarNotas());
   }
 
@@ -43,8 +48,7 @@ class _NotasScreenState extends State<NotasScreen> {
     });
 
     try {
-      final lista =
-          await _notasService.obtenerNotasUsuario(widget.usuario.uid);
+      final lista = await _notasService.obtenerNotasUsuario(widget.usuario.uid);
       setState(() {
         _notas = lista;
       });
@@ -162,45 +166,15 @@ class _NotasScreenState extends State<NotasScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () {},
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${widget.usuario.nombre},',
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Text(
-              '¿Qué hay de nuevo?',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Center(
-              child: Image(
-                image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
-                height: 28,
-              ),
-            ),
-          ),
-        ],
+      appBar: MainAppBar(
+        usuario: _usuario,
+        api: widget.api,
+        subtitle: "¿qué hay de nuevo?",
+        onUsuarioActualizado: (nuevoUsuario) {
+          setState(() {
+            _usuario = nuevoUsuario;
+          });
+        },
       ),
       body: Column(
         children: [
@@ -296,12 +270,12 @@ class _NotasScreenState extends State<NotasScreen> {
   Widget _buildNotaCard(Nota nota, int index) {
     // 3 degradados para rotar
     final gradients = <List<Color>>[
-      [const Color(0xFFF20000), const Color.fromARGB(255, 248, 62, 62)], 
-      [const Color(0xFF1782C6), const Color.fromARGB(255, 75, 169, 227)], 
-      [const Color(0xFF8ACB27), const Color.fromARGB(255, 190, 234, 124)], 
-      [const Color(0xFF6B4E91), const Color.fromARGB(255, 161, 109, 228)], 
-      [const Color(0xFFFFCB3A), const Color.fromARGB(255, 234, 198, 99)], 
-      [const Color(0xFFFC8A27), const Color.fromARGB(255, 250, 161, 84)], 
+      [const Color(0xFFF20000), const Color.fromARGB(255, 248, 62, 62)],
+      [const Color(0xFF1782C6), const Color.fromARGB(255, 75, 169, 227)],
+      [const Color(0xFF8ACB27), const Color.fromARGB(255, 190, 234, 124)],
+      [const Color(0xFF6B4E91), const Color.fromARGB(255, 161, 109, 228)],
+      [const Color(0xFFFFCB3A), const Color.fromARGB(255, 234, 198, 99)],
+      [const Color(0xFFFC8A27), const Color.fromARGB(255, 250, 161, 84)],
     ];
     final colors = gradients[index % gradients.length];
 
@@ -330,9 +304,7 @@ class _NotasScreenState extends State<NotasScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            nota.contenidoNota.isEmpty
-                ? 'Sin contenido'
-                : nota.contenidoNota,
+            nota.contenidoNota.isEmpty ? 'Sin contenido' : nota.contenidoNota,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

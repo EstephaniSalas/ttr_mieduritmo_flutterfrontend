@@ -11,6 +11,8 @@ import '../services/eventos_api_service.dart';
 import '../theme/app_colors.dart';
 import 'home_shell_screen.dart';
 
+import '../widgets/main_app_bar.dart';
+
 class CalendarioScreen extends StatefulWidget {
   final Usuario usuario;
   final UsuarioApiService api;
@@ -29,7 +31,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   late final CalendarioSepApiService _calendarioService;
   late final EventosApiService _eventosService;
 
-    final _formKeyEvento = GlobalKey<FormState>();
+   late Usuario _usuario;  
+
+  final _formKeyEvento = GlobalKey<FormState>();
 
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -51,6 +55,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
+
+    _usuario = widget.usuario; 
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _cargarEventosMes(_focusedDay);
@@ -89,8 +95,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
     try {
       final firstDayOfMonth = DateTime(referencia.year, referencia.month, 1);
-      final lastDayOfMonth =
-          DateTime(referencia.year, referencia.month + 1, 0);
+      final lastDayOfMonth = DateTime(referencia.year, referencia.month + 1, 0);
 
       final desde = firstDayOfMonth.subtract(const Duration(days: 7));
       final hasta = lastDayOfMonth.add(const Duration(days: 7));
@@ -128,7 +133,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   Future<void> _cargarEventosPersonales() async {
     try {
-      final idUsuario = widget.usuario.uid; // ajusta si tu modelo usa otro campo
+      final idUsuario =
+          widget.usuario.uid; // ajusta si tu modelo usa otro campo
       final eventos = await _eventosService.obtenerEventosUsuario(idUsuario);
 
       final mapa = <DateTime, List<EventoPersonal>>{};
@@ -149,355 +155,246 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   }
 
   Future<void> _abrirBottomSheetEvento({EventoPersonal? evento}) async {
-  final bool editando = evento != null;
+    final bool editando = evento != null;
 
-  // Controllers
-  final tituloCtrl =
-      TextEditingController(text: editando ? evento!.tituloEvento : '');
-  final descCtrl =
-      TextEditingController(text: editando ? evento!.descripcionEvento : '');
-  final horaInicioCtrl =
-      TextEditingController(text: editando ? evento!.horaInicio : '');
-  final horaFinCtrl =
-      TextEditingController(text: editando ? evento!.horaFin : '');
+    // Controllers
+    final tituloCtrl =
+        TextEditingController(text: editando ? evento!.tituloEvento : '');
+    final descCtrl =
+        TextEditingController(text: editando ? evento!.descripcionEvento : '');
+    final horaInicioCtrl =
+        TextEditingController(text: editando ? evento!.horaInicio : '');
+    final horaFinCtrl =
+        TextEditingController(text: editando ? evento!.horaFin : '');
 
-  DateTime fecha = editando ? evento!.fechaEvento : _selectedDay;
-  String horaInicio = horaInicioCtrl.text;
-  String horaFin = horaFinCtrl.text;
-  bool importante = editando ? evento!.importante : false;
+    DateTime fecha = editando ? evento!.fechaEvento : _selectedDay;
+    String horaInicio = horaInicioCtrl.text;
+    String horaFin = horaFinCtrl.text;
+    bool importante = editando ? evento!.importante : false;
 
-  await showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.black54,
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return GestureDetector(
-            onTap: () => FocusScope.of(ctx).unfocus(),
-            child: Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black54,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return GestureDetector(
+              onTap: () => FocusScope.of(ctx).unfocus(),
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
                   ),
-                  child: Form(
-                    key: _formKeyEvento,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              editando
-                                  ? 'Modificar evento'
-                                  : 'Agregar evento',
+                  child: Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 500),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Form(
+                      key: _formKeyEvento,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                editando
+                                    ? 'Modificar evento'
+                                    : 'Agregar evento',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.pop(ctx),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Fecha: ${fecha.day.toString().padLeft(2, '0')}-'
+                              '${fecha.month.toString().padLeft(2, '0')}-'
+                              '${fecha.year}',
                               style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: Colors.black54,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.pop(ctx),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: tituloCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Título del evento *',
+                              border: OutlineInputBorder(),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Fecha: ${fecha.day.toString().padLeft(2, '0')}-'
-                            '${fecha.month.toString().padLeft(2, '0')}-'
-                            '${fecha.year}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'El título es obligatorio';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: descCtrl,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Descripción',
+                              border: OutlineInputBorder(),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: tituloCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Título del evento *',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'El título es obligatorio';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: descCtrl,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Descripción',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: horaInicioCtrl,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Hora inicio *',
-                                  hintText: 'HH:MM',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) {
-                                    return 'Obligatorio';
-                                  }
-                                  return null;
-                                },
-                                onTap: () async {
-                                  final initial = horaInicio.isNotEmpty
-                                      ? _parseTime(horaInicio)
-                                      : const TimeOfDay(hour: 8, minute: 0);
-                                  final picked = await showTimePicker(
-                                    context: ctx,
-                                    initialTime: initial,
-                                  );
-                                  if (picked != null) {
-                                    final value =
-                                        _formatTimeOfDay24(picked);
-                                    setModalState(() {
-                                      horaInicio = value;
-                                      horaInicioCtrl.text = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextFormField(
-                                controller: horaFinCtrl,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Hora fin *',
-                                  hintText: 'HH:MM',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) {
-                                    return 'Obligatorio';
-                                  }
-                                  return null;
-                                },
-                                onTap: () async {
-                                  final initial = horaFin.isNotEmpty
-                                      ? _parseTime(horaFin)
-                                      : const TimeOfDay(hour: 9, minute: 0);
-                                  final picked = await showTimePicker(
-                                    context: ctx,
-                                    initialTime: initial,
-                                  );
-                                  if (picked != null) {
-                                    final value =
-                                        _formatTimeOfDay24(picked);
-                                    setModalState(() {
-                                      horaFin = value;
-                                      horaFinCtrl.text = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Text(
-                              'Importante',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            const Spacer(),
-                            Switch(
-                              value: importante,
-                              activeColor: AppColors.black,
-                              onChanged: (v) {
-                                setModalState(() {
-                                  importante = v;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            if (editando)
-                              TextButton.icon(
-                                onPressed: () async {
-                                  final confirmar =
-                                      await showDialog<bool>(
-                                    context: ctx,
-                                    builder: (dCtx) => AlertDialog(
-                                      title:
-                                          const Text('Eliminar evento'),
-                                      content: const Text(
-                                          '¿Quieres eliminar este evento personal?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(dCtx, false),
-                                          child: const Text('Cancelar'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(dCtx, true),
-                                          child: const Text('Eliminar'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirmar != true) return;
-
-                                  final idUsuario = widget.usuario.uid;
-                                  try {
-                                    await _eventosService.borrarEvento(
-                                      idUsuario: idUsuario,
-                                      idEvento: evento!.uid,
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: horaInicioCtrl,
+                                  readOnly: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Hora inicio *',
+                                    hintText: 'HH:MM',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Obligatorio';
+                                    }
+                                    return null;
+                                  },
+                                  onTap: () async {
+                                    final initial = horaInicio.isNotEmpty
+                                        ? _parseTime(horaInicio)
+                                        : const TimeOfDay(hour: 8, minute: 0);
+                                    final picked = await showTimePicker(
+                                      context: ctx,
+                                      initialTime: initial,
                                     );
-
-                                    // Actualiza estado global después de cerrar sheet
-                                    if (mounted) {
-                                      setState(() {
-                                        final key = _normalizar(
-                                            evento.fechaEvento);
-                                        _eventosPersonalesPorDia[key]
-                                            ?.removeWhere((e) =>
-                                                e.uid == evento.uid);
-                                        if ((_eventosPersonalesPorDia[
-                                                        key]
-                                                    ?.isEmpty ??
-                                                false)) {
-                                          _eventosPersonalesPorDia
-                                              .remove(key);
-                                        }
+                                    if (picked != null) {
+                                      final value = _formatTimeOfDay24(picked);
+                                      setModalState(() {
+                                        horaInicio = value;
+                                        horaInicioCtrl.text = value;
                                       });
                                     }
-
-                                    Navigator.pop(ctx);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Evento eliminado correctamente.'),
-                                          backgroundColor: AppColors.red,
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    Navigator.pop(ctx);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                              'Error al eliminar el evento: $e'),
-                                          backgroundColor: AppColors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
-                                label: const Text(
-                                  'Eliminar',
-                                  style: TextStyle(color: Colors.red),
+                                  },
                                 ),
                               ),
-                            if (editando) const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.black,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(24),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: horaFinCtrl,
+                                  readOnly: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Hora fin *',
+                                    hintText: 'HH:MM',
+                                    border: OutlineInputBorder(),
                                   ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Obligatorio';
+                                    }
+                                    return null;
+                                  },
+                                  onTap: () async {
+                                    final initial = horaFin.isNotEmpty
+                                        ? _parseTime(horaFin)
+                                        : const TimeOfDay(hour: 9, minute: 0);
+                                    final picked = await showTimePicker(
+                                      context: ctx,
+                                      initialTime: initial,
+                                    );
+                                    if (picked != null) {
+                                      final value = _formatTimeOfDay24(picked);
+                                      setModalState(() {
+                                        horaFin = value;
+                                        horaFinCtrl.text = value;
+                                      });
+                                    }
+                                  },
                                 ),
-                                onPressed: () async {
-                                  // Valida formulario
-                                  if (!_formKeyEvento.currentState!
-                                      .validate()) {
-                                    return;
-                                  }
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Text(
+                                'Importante',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                              const Spacer(),
+                              Switch(
+                                value: importante,
+                                activeColor: AppColors.black,
+                                onChanged: (v) {
+                                  setModalState(() {
+                                    importante = v;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              if (editando)
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    final confirmar = await showDialog<bool>(
+                                      context: ctx,
+                                      builder: (dCtx) => AlertDialog(
+                                        title: const Text('Eliminar evento'),
+                                        content: const Text(
+                                            '¿Quieres eliminar este evento personal?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(dCtx, false),
+                                            child: const Text('Cancelar'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(dCtx, true),
+                                            child: const Text('Eliminar'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmar != true) return;
 
-                                  final titulo =
-                                      tituloCtrl.text.trim();
-                                  final descripcion =
-                                      descCtrl.text.trim();
-                                  final idUsuario =
-                                      widget.usuario.uid;
-
-                                  try {
-                                    if (editando) {
-                                      final actualizado =
-                                          await _eventosService
-                                              .actualizarEvento(
+                                    final idUsuario = widget.usuario.uid;
+                                    try {
+                                      await _eventosService.borrarEvento(
                                         idUsuario: idUsuario,
                                         idEvento: evento!.uid,
-                                        titulo: titulo,
-                                        descripcion: descripcion,
-                                        fecha: fecha,
-                                        horaInicio: horaInicioCtrl.text
-                                            .trim(),
-                                        horaFin:
-                                            horaFinCtrl.text.trim(),
-                                        importante: importante,
                                       );
 
+                                      // Actualiza estado global después de cerrar sheet
                                       if (mounted) {
                                         setState(() {
-                                          final oldKey = _normalizar(
-                                              evento.fechaEvento);
-                                          final newKey = _normalizar(
-                                              actualizado
-                                                  .fechaEvento);
-
-                                          _eventosPersonalesPorDia[
-                                                  oldKey]
-                                              ?.removeWhere((e) =>
-                                                  e.uid ==
-                                                  evento.uid);
-                                          if ((_eventosPersonalesPorDia[
-                                                      oldKey]
+                                          final key =
+                                              _normalizar(evento.fechaEvento);
+                                          _eventosPersonalesPorDia[key]
+                                              ?.removeWhere(
+                                                  (e) => e.uid == evento.uid);
+                                          if ((_eventosPersonalesPorDia[key]
                                                   ?.isEmpty ??
                                               false)) {
                                             _eventosPersonalesPorDia
-                                                .remove(oldKey);
+                                                .remove(key);
                                           }
-
-                                          _eventosPersonalesPorDia
-                                              .putIfAbsent(
-                                                  newKey, () => [])
-                                              .add(actualizado);
                                         });
                                       }
 
@@ -507,89 +404,177 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                             .showSnackBar(
                                           const SnackBar(
                                             content: Text(
-                                                'Evento actualizado correctamente.'),
-                                            backgroundColor:
-                                                AppColors.black,
+                                                'Evento eliminado correctamente.'),
+                                            backgroundColor: AppColors.red,
                                           ),
                                         );
                                       }
-                                    } else {
-                                      final nuevo =
-                                          await _eventosService
-                                              .crearEvento(
-                                        idUsuario: idUsuario,
-                                        titulo: titulo,
-                                        descripcion: descripcion,
-                                        fecha: fecha,
-                                        horaInicio: horaInicioCtrl.text
-                                            .trim(),
-                                        horaFin:
-                                            horaFinCtrl.text.trim(),
-                                        importante: importante,
-                                      );
-
-                                      if (mounted) {
-                                        setState(() {
-                                          final key = _normalizar(
-                                              nuevo.fechaEvento);
-                                          _eventosPersonalesPorDia
-                                              .putIfAbsent(
-                                                  key, () => [])
-                                              .add(nuevo);
-                                        });
-                                      }
-
+                                    } catch (e) {
                                       Navigator.pop(ctx);
                                       if (mounted) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                                'Evento creado correctamente.'),
-                                            backgroundColor:
-                                                AppColors.black,
+                                                'Error al eliminar el evento: $e'),
+                                            backgroundColor: AppColors.red,
                                           ),
                                         );
                                       }
                                     }
-                                  } catch (e) {
-                                    Navigator.pop(ctx);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                              'Error al guardar el evento: $e'),
-                                          backgroundColor:
-                                              AppColors.red,
-                                        ),
-                                      );
+                                  },
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  label: const Text(
+                                    'Eliminar',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              if (editando) const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.black,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    // Valida formulario
+                                    if (!_formKeyEvento.currentState!
+                                        .validate()) {
+                                      return;
                                     }
-                                  }
-                                },
-                                child: Text(
-                                  editando
-                                      ? 'Guardar cambios'
-                                      : 'Agregar evento',
-                                  style:
-                                      const TextStyle(fontSize: 14),
+
+                                    final titulo = tituloCtrl.text.trim();
+                                    final descripcion = descCtrl.text.trim();
+                                    final idUsuario = widget.usuario.uid;
+
+                                    try {
+                                      if (editando) {
+                                        final actualizado =
+                                            await _eventosService
+                                                .actualizarEvento(
+                                          idUsuario: idUsuario,
+                                          idEvento: evento!.uid,
+                                          titulo: titulo,
+                                          descripcion: descripcion,
+                                          fecha: fecha,
+                                          horaInicio:
+                                              horaInicioCtrl.text.trim(),
+                                          horaFin: horaFinCtrl.text.trim(),
+                                          importante: importante,
+                                        );
+
+                                        if (mounted) {
+                                          setState(() {
+                                            final oldKey =
+                                                _normalizar(evento.fechaEvento);
+                                            final newKey = _normalizar(
+                                                actualizado.fechaEvento);
+
+                                            _eventosPersonalesPorDia[oldKey]
+                                                ?.removeWhere(
+                                                    (e) => e.uid == evento.uid);
+                                            if ((_eventosPersonalesPorDia[
+                                                        oldKey]
+                                                    ?.isEmpty ??
+                                                false)) {
+                                              _eventosPersonalesPorDia
+                                                  .remove(oldKey);
+                                            }
+
+                                            _eventosPersonalesPorDia
+                                                .putIfAbsent(newKey, () => [])
+                                                .add(actualizado);
+                                          });
+                                        }
+
+                                        Navigator.pop(ctx);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Evento actualizado correctamente.'),
+                                              backgroundColor: AppColors.black,
+                                            ),
+                                          );
+                                        }
+                                      } else {
+                                        final nuevo =
+                                            await _eventosService.crearEvento(
+                                          idUsuario: idUsuario,
+                                          titulo: titulo,
+                                          descripcion: descripcion,
+                                          fecha: fecha,
+                                          horaInicio:
+                                              horaInicioCtrl.text.trim(),
+                                          horaFin: horaFinCtrl.text.trim(),
+                                          importante: importante,
+                                        );
+
+                                        if (mounted) {
+                                          setState(() {
+                                            final key =
+                                                _normalizar(nuevo.fechaEvento);
+                                            _eventosPersonalesPorDia
+                                                .putIfAbsent(key, () => [])
+                                                .add(nuevo);
+                                          });
+                                        }
+
+                                        Navigator.pop(ctx);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Evento creado correctamente.'),
+                                              backgroundColor: AppColors.black,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      Navigator.pop(ctx);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Error al guardar el evento: $e'),
+                                            backgroundColor: AppColors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: Text(
+                                    editando
+                                        ? 'Guardar cambios'
+                                        : 'Agregar evento',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   // --- UI ------------------------------------------------------------
 
@@ -597,44 +582,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () {
-            // patrón alterno si quisieras abrir el drawer del shell
-          },
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Buen día, ${widget.usuario.nombre}",
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Text(
-              "Así se ve tu mes",
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Image(
-              image: AssetImage('assets/images/MiEduRitmo_Negro.png'),
-              height: 28,
-            ),
-          )
-        ],
+      appBar: MainAppBar(
+        usuario: _usuario,
+        api: widget.api,
+        subtitle: "Asi se ve tu mes",
+        onUsuarioActualizado: (nuevoUsuario) {
+          setState(() {
+            _usuario = nuevoUsuario;
+          });
+        },
       ),
       body: Column(
         children: [
@@ -698,8 +654,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                     } catch (e) {
                       if (!mounted) return;
 
-                      if (e is DioException &&
-                          e.response?.statusCode == 404) {
+                      if (e is DioException && e.response?.statusCode == 404) {
                         // tu backend responde 404 cuando no hay eventos que borrar
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -903,7 +858,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
               _cargarEventosMes(focused);
             },
             eventLoader: _eventosDe,
-                        calendarStyle: const CalendarStyle(
+            calendarStyle: const CalendarStyle(
               // dejamos que los builders manejen today/selected,
               // solo configuramos los marcadores.
               markerSize: 6,
@@ -955,7 +910,6 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                 );
               },
             ),
-
           ),
           const SizedBox(height: 8),
           Row(
@@ -1204,7 +1158,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     );
   }
 
-    Widget _buildDayCell(DateTime day,
+  Widget _buildDayCell(DateTime day,
       {bool isToday = false, bool isSelected = false}) {
     final tienePersonales = _eventosPersonalesDe(day).isNotEmpty;
 
@@ -1251,7 +1205,6 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
       ),
     );
   }
-
 
   // Barra inferior de navegación --------------------------------
 
