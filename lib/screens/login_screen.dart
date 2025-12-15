@@ -126,10 +126,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20),
@@ -151,6 +149,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
 
+                Center(
+                  child: const Text(
+                    '\n\nAplicación Móvil para la Gestión Académica Integral y Apoyo de Aprendizaje para Estudiantes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color.fromARGB(213, 90, 90, 90),
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 35),
 
                 // CARTAS DE COLORES
@@ -159,7 +167,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     _buildColorCard(AppColors.purple, Icons.calendar_month),
                     _buildColorCard(AppColors.blue, Icons.note_alt),
-                    _buildColorCard(AppColors.red, Icons.list_alt),
+                    _buildColorCard(const Color.fromARGB(255, 15, 171, 255),
+                        Icons.list_alt),
                     _buildColorCard(AppColors.green, Icons.access_time),
                     _buildColorCard(AppColors.yellow, Icons.edit),
                   ],
@@ -189,9 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         focusNode: _emailFocus,
                         nextFocus: _passwordFocus,
                       ),
-
                       const SizedBox(height: 16),
-
                       _buildInput(
                         label: "Contraseña",
                         hint: "********",
@@ -214,8 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              const SolicitarCambioPasswordScreen(),
+                          builder: (_) => const SolicitarCambioPasswordScreen(),
                         ),
                       );
                     },

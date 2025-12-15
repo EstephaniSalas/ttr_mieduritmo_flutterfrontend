@@ -468,9 +468,8 @@ class _InicioScreenState extends State<InicioScreen> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color.fromARGB(255, 132, 132, 132),
-            Color.fromARGB(255, 132, 132, 132)
-          ],
+            Color.fromRGBO(230, 228, 228, 1),
+            Color.fromARGB(255, 79, 78, 78)         ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
