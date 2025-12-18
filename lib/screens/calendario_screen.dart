@@ -11,6 +11,7 @@ import '../services/eventos_api_service.dart';
 import '../theme/app_colors.dart';
 import 'home_shell_screen.dart';
 
+import '../services/notification_service.dart';
 import '../widgets/main_app_bar.dart';
 
 class CalendarioScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class CalendarioScreen extends StatefulWidget {
 class _CalendarioScreenState extends State<CalendarioScreen> {
   late final CalendarioSepApiService _calendarioService;
   late final EventosApiService _eventosService;
+  late final NotificationService _notificationService;
 
   late Usuario _usuario;
 
@@ -52,6 +54,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     super.initState();
     _calendarioService = CalendarioSepApiService(widget.api.dio);
     _eventosService = EventosApiService(widget.api.dio);
+    _notificationService = NotificationService();
 
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
@@ -87,18 +90,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     return TimeOfDay(hour: h, minute: m);
   }
 
-  // Método para mostrar el reloj personalizado
   Future<TimeOfDay?> _showCustomTimePicker({
     required BuildContext context,
     required TimeOfDay initialTime,
   }) async {
     int hour = initialTime.hour % 12;
     if (hour == 0) hour = 12;
-    int minute = initialTime.minute;
-    bool isAm = initialTime.hour < 12;
 
-    // Asegurarnos que los minutos sean múltiplos de 5
-    minute = (minute ~/ 5) * 5;
+    int minute = initialTime.minute; // <- sin redondeo
+    bool isAm = initialTime.hour < 12;
 
     final result = await showDialog<TimeOfDay>(
       context: context,
@@ -117,11 +117,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Selector de hora y minutos
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Hora
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -146,8 +144,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                   hour.toString().padLeft(2, '0'),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               IconButton(
@@ -169,10 +168,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             padding: EdgeInsets.symmetric(horizontal: 12),
                             child: Text(':',
                                 style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold)),
+                                    fontSize: 24, fontWeight: FontWeight.bold)),
                           ),
-                          // Minutos
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -180,7 +177,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 icon: const Icon(Icons.arrow_drop_up),
                                 onPressed: () {
                                   setState(() {
-                                    minute = minute == 55 ? 0 : minute + 5;
+                                    minute = minute == 59 ? 0 : minute + 1;
                                   });
                                 },
                               ),
@@ -197,15 +194,16 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                   minute.toString().padLeft(2, '0'),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.arrow_drop_down),
                                 onPressed: () {
                                   setState(() {
-                                    minute = minute == 0 ? 55 : minute - 5;
+                                    minute = minute == 0 ? 59 : minute - 1;
                                   });
                                 },
                               ),
@@ -219,16 +217,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      // Botones AM/PM
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                isAm = true;
-                              });
-                            },
+                            onTap: () => setState(() => isAm = true),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   vertical: 12, horizontal: 24),
@@ -248,11 +241,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           ),
                           const SizedBox(width: 20),
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                isAm = false;
-                              });
-                            },
+                            onTap: () => setState(() => isAm = false),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   vertical: 12, horizontal: 24),
@@ -287,7 +276,6 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                // Convertir a formato 24h
                 int hour24 = hour;
                 if (hour == 12) {
                   hour24 = isAm ? 0 : 12;
@@ -601,12 +589,16 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
                                     final idUsuario = widget.usuario.uid;
                                     try {
+                                      // 🔔 Cancelar notificaciones
+                                      await _notificationService
+                                          .cancelarNotificacionesEvento(
+                                              evento!.uid);
+
                                       await _eventosService.borrarEvento(
                                         idUsuario: idUsuario,
-                                        idEvento: evento!.uid,
+                                        idEvento: evento.uid,
                                       );
 
-                                      // Actualiza estado global después de cerrar sheet
                                       if (mounted) {
                                         setState(() {
                                           final key =
@@ -629,7 +621,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                             .showSnackBar(
                                           const SnackBar(
                                             content: Text(
-                                                'Evento eliminado correctamente.'),
+                                                'Evento y notificaciones eliminados ✅'),
                                             backgroundColor: AppColors.red,
                                           ),
                                         );
@@ -648,8 +640,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                       }
                                     }
                                   },
-                                  icon:
-                                      const Icon(Icons.delete, color: Colors.red),
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
                                   label: const Text(
                                     'Eliminar',
                                     style: TextStyle(color: Colors.red),
@@ -661,8 +653,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.black,
                                     foregroundColor: Colors.white,
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(24),
                                     ),
@@ -680,22 +672,46 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
                                     try {
                                       if (editando) {
-                                        final actualizado = await _eventosService
-                                            .actualizarEvento(
+                                        final actualizado =
+                                            await _eventosService
+                                                .actualizarEvento(
                                           idUsuario: idUsuario,
                                           idEvento: evento!.uid,
                                           titulo: titulo,
                                           descripcion: descripcion,
                                           fecha: fecha,
-                                          horaInicio: horaInicioCtrl.text.trim(),
+                                          horaInicio:
+                                              horaInicioCtrl.text.trim(),
                                           horaFin: horaFinCtrl.text.trim(),
                                           importante: importante,
                                         );
 
+                                        final horaInicioParts = horaInicioCtrl
+                                            .text
+                                            .trim()
+                                            .split(':');
+                                        final fechaHoraInicio = DateTime(
+                                          fecha.year,
+                                          fecha.month,
+                                          fecha.day,
+                                          int.parse(horaInicioParts[0]),
+                                          int.parse(horaInicioParts[1]),
+                                        );
+
+                                        await _notificationService
+                                            .programarNotificacionesEvento(
+                                          eventoId: actualizado.uid,
+                                          titulo: actualizado.tituloEvento,
+                                          descripcion:
+                                              actualizado.descripcionEvento,
+                                          fechaHoraInicio: fechaHoraInicio,
+                                          importante: actualizado.importante,
+                                        );
+
                                         if (mounted) {
                                           setState(() {
-                                            final oldKey = _normalizar(
-                                                evento.fechaEvento);
+                                            final oldKey =
+                                                _normalizar(evento.fechaEvento);
                                             final newKey = _normalizar(
                                                 actualizado.fechaEvento);
 
@@ -703,9 +719,45 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                                 ?.removeWhere(
                                                     (e) => e.uid == evento.uid);
                                             if ((_eventosPersonalesPorDia[
-                                                            oldKey]
-                                                        ?.isEmpty ??
-                                                    false)) {
+                                                        oldKey]
+                                                    ?.isEmpty ??
+                                                false)) {
+                                              _eventosPersonalesPorDia
+                                                  .remove(oldKey);
+                                            }
+
+                                            _eventosPersonalesPorDia
+                                                .putIfAbsent(newKey, () => [])
+                                                .add(actualizado);
+                                          });
+                                        }
+
+                                        Navigator.pop(ctx);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Evento actualizado con notificaciones ✅'),
+                                              backgroundColor: AppColors.black,
+                                            ),
+                                          );
+                                        }
+
+                                        if (mounted) {
+                                          setState(() {
+                                            final oldKey =
+                                                _normalizar(evento.fechaEvento);
+                                            final newKey = _normalizar(
+                                                actualizado.fechaEvento);
+
+                                            _eventosPersonalesPorDia[oldKey]
+                                                ?.removeWhere(
+                                                    (e) => e.uid == evento.uid);
+                                            if ((_eventosPersonalesPorDia[
+                                                        oldKey]
+                                                    ?.isEmpty ??
+                                                false)) {
                                               _eventosPersonalesPorDia
                                                   .remove(oldKey);
                                             }
@@ -734,10 +786,54 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                           titulo: titulo,
                                           descripcion: descripcion,
                                           fecha: fecha,
-                                          horaInicio: horaInicioCtrl.text.trim(),
+                                          horaInicio:
+                                              horaInicioCtrl.text.trim(),
                                           horaFin: horaFinCtrl.text.trim(),
                                           importante: importante,
                                         );
+
+                                        final horaInicioParts = horaInicioCtrl
+                                            .text
+                                            .trim()
+                                            .split(':');
+                                        final fechaHoraInicio = DateTime(
+                                          fecha.year,
+                                          fecha.month,
+                                          fecha.day,
+                                          int.parse(horaInicioParts[0]),
+                                          int.parse(horaInicioParts[1]),
+                                        );
+
+                                        await _notificationService
+                                            .programarNotificacionesEvento(
+                                          eventoId: nuevo.uid,
+                                          titulo: nuevo.tituloEvento,
+                                          descripcion: nuevo.descripcionEvento,
+                                          fechaHoraInicio: fechaHoraInicio,
+                                          importante: nuevo.importante,
+                                        );
+
+                                        if (mounted) {
+                                          setState(() {
+                                            final key =
+                                                _normalizar(nuevo.fechaEvento);
+                                            _eventosPersonalesPorDia
+                                                .putIfAbsent(key, () => [])
+                                                .add(nuevo);
+                                          });
+                                        }
+
+                                        Navigator.pop(ctx);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Evento creado con notificaciones ✅'),
+                                              backgroundColor: AppColors.black,
+                                            ),
+                                          );
+                                        }
 
                                         if (mounted) {
                                           setState(() {
@@ -858,6 +954,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
                     try {
                       final idUsuario = widget.usuario.uid;
+
+                      // 🔔 Cancelar notificaciones de todos los eventos
+                      for (var eventos in _eventosPersonalesPorDia.values) {
+                        for (var evento in eventos) {
+                          await _notificationService
+                              .cancelarNotificacionesEvento(evento.uid);
+                        }
+                      }
+
                       await _eventosService
                           .borrarTodosEventosUsuario(idUsuario);
 
@@ -868,8 +973,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                              'Eventos personales eliminados correctamente.'),
+                          content:
+                              Text('Eventos y notificaciones eliminados ✅'),
                           backgroundColor: AppColors.red,
                         ),
                       );
@@ -877,7 +982,6 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       if (!mounted) return;
 
                       if (e is DioException && e.response?.statusCode == 404) {
-                        // tu backend responde 404 cuando no hay eventos que borrar
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -929,78 +1033,77 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   Widget _buildModeToggle() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFEDEFF3),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => HomeShellScreen(
-                        usuario: widget.usuario,
-                        api: widget.api,
-                        initialIndex: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEFF3),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HomeShellScreen(
+                          usuario: widget.usuario,
+                          api: widget.api,
+                          initialIndex: 1,
+                        ),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Horario escolar",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                    (route) => false,
-                  );
-                },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.black,
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
                   ),
                   child: const Center(
                     child: Text(
-                      "Horario escolar",
+                      "Calendario",
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.black87,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.black,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: const Center(
-                  child: Text(
-                    "Calendario",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      )
-    );
+            ],
+          ),
+        ));
   }
 
   // Contenido principal ------------------------------------------
@@ -1037,118 +1140,117 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   Widget _buildCalendarCard() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        children: [
-          TableCalendar<EventoCalendarioSep>(
-            locale: 'es_MX',
-            focusedDay: _focusedDay,
-            firstDay: DateTime(2025, 8, 1),
-            lastDay: DateTime(2026, 8, 31),
-            calendarFormat: CalendarFormat.month,
-            startingDayOfWeek: StartingDayOfWeek.monday,
-            headerStyle: const HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextStyle: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          children: [
+            TableCalendar<EventoCalendarioSep>(
+              locale: 'es_MX',
+              focusedDay: _focusedDay,
+              firstDay: DateTime(2025, 8, 1),
+              lastDay: DateTime(2026, 8, 31),
+              calendarFormat: CalendarFormat.month,
+              startingDayOfWeek: StartingDayOfWeek.monday,
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            availableGestures: AvailableGestures.horizontalSwipe,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: (selected, focused) {
-              setState(() {
-                _selectedDay = selected;
+              availableGestures: AvailableGestures.horizontalSwipe,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              onDaySelected: (selected, focused) {
+                setState(() {
+                  _selectedDay = selected;
+                  _focusedDay = focused;
+                });
+              },
+              onPageChanged: (focused) {
                 _focusedDay = focused;
-              });
-            },
-            onPageChanged: (focused) {
-              _focusedDay = focused;
-              _cargarEventosMes(focused);
-            },
-            eventLoader: _eventosDe,
-            calendarStyle: const CalendarStyle(
-              // dejamos que los builders manejen today/selected,
-              // solo configuramos los marcadores.
-              markerSize: 6,
-              markersAlignment: Alignment.bottomCenter,
-              outsideDaysVisible: false,
-            ),
-            calendarBuilders: CalendarBuilders(
-              // Día normal
-              defaultBuilder: (context, day, focusedDay) {
-                return _buildDayCell(day);
+                _cargarEventosMes(focused);
               },
-              // Día seleccionado
-              selectedBuilder: (context, day, focusedDay) {
-                return _buildDayCell(day, isSelected: true);
-              },
-              // Hoy
-              todayBuilder: (context, day, focusedDay) {
-                return _buildDayCell(day, isToday: true);
-              },
-              // Marcadores para eventos oficiales SEP (vacaciones/festivos)
-              markerBuilder: (context, date, eventos) {
-                if (eventos.isEmpty) return const SizedBox.shrink();
-
-                bool hayVacaciones = false;
-                bool hayFestivo = false;
-
-                for (final ev in eventos) {
-                  switch (ev.tipo) {
-                    case "VACACIONES":
-                      hayVacaciones = true;
-                      break;
-                    case "DIA_FESTIVO":
-                      hayFestivo = true;
-                      break;
-                  }
-                }
-
-                final dots = <Widget>[];
-                if (hayVacaciones) {
-                  dots.add(_buildMarkerDot(AppColors.blue));
-                }
-                if (hayFestivo) {
-                  dots.add(_buildMarkerDot(AppColors.red));
-                }
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: dots,
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              _LegendItem(color: AppColors.blue, text: "Vacaciones"),
-              SizedBox(width: 16),
-              _LegendItem(
-                color: AppColors.red,
-                text: "Suspensión de clases / Día festivo",
+              eventLoader: _eventosDe,
+              calendarStyle: const CalendarStyle(
+                // dejamos que los builders manejen today/selected,
+                // solo configuramos los marcadores.
+                markerSize: 6,
+                markersAlignment: Alignment.bottomCenter,
+                outsideDaysVisible: false,
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-        ],
-      )
-    );
+              calendarBuilders: CalendarBuilders(
+                // Día normal
+                defaultBuilder: (context, day, focusedDay) {
+                  return _buildDayCell(day);
+                },
+                // Día seleccionado
+                selectedBuilder: (context, day, focusedDay) {
+                  return _buildDayCell(day, isSelected: true);
+                },
+                // Hoy
+                todayBuilder: (context, day, focusedDay) {
+                  return _buildDayCell(day, isToday: true);
+                },
+                // Marcadores para eventos oficiales SEP (vacaciones/festivos)
+                markerBuilder: (context, date, eventos) {
+                  if (eventos.isEmpty) return const SizedBox.shrink();
+
+                  bool hayVacaciones = false;
+                  bool hayFestivo = false;
+
+                  for (final ev in eventos) {
+                    switch (ev.tipo) {
+                      case "VACACIONES":
+                        hayVacaciones = true;
+                        break;
+                      case "DIA_FESTIVO":
+                        hayFestivo = true;
+                        break;
+                    }
+                  }
+
+                  final dots = <Widget>[];
+                  if (hayVacaciones) {
+                    dots.add(_buildMarkerDot(AppColors.blue));
+                  }
+                  if (hayFestivo) {
+                    dots.add(_buildMarkerDot(AppColors.red));
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: dots,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                _LegendItem(color: AppColors.blue, text: "Vacaciones"),
+                SizedBox(width: 16),
+                _LegendItem(
+                  color: AppColors.red,
+                  text: "Suspensión de clases / Día festivo",
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+          ],
+        ));
   }
 
   Widget _buildEventosDelDiaCard() {

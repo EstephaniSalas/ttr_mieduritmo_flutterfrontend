@@ -1,6 +1,8 @@
+// lib/main.dart - ACTUALIZADO
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'services/usuario_api_service.dart';
+import 'services/notification_service.dart'; // 🔔 NUEVO
 
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,6 +15,10 @@ Future<void> main() async {
 
   // Inicializar datos de formato de fechas para español México
   await initializeDateFormatting('es_MX', null);
+
+  // 🔔 NUEVO: Inicializar servicio de notificaciones
+  await NotificationService().initialize();
+  print('🔔 Servicio de notificaciones inicializado');
 
   final apiService = UsuarioApiService(); // Instancia global
 

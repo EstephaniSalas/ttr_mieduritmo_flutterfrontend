@@ -27,13 +27,13 @@ class HorarioScreen extends StatefulWidget {
 
 class _HorarioScreenState extends State<HorarioScreen> {
   late final MateriasService _materiasService;
-  late Usuario _usuario; 
+  late Usuario _usuario;
 
   bool _loading = false;
   String? _error;
   List<Materia> _materias = [];
 
-  // 0 = Horario escolar, 1 = Calendario (por ahora solo cambia el toggle visual)
+  // 0 = Horario escolar, 1 = Calendario
   int _modeIndex = 0;
 
   // Días columnas
@@ -53,6 +53,9 @@ class _HorarioScreenState extends State<HorarioScreen> {
   int _startHour = 7;
   int _endHour = 18;
   static const double _slotHeight = 64.0;
+
+  // Header (día) arriba del timeline
+  static const double _dayHeaderHeight = 24.0; // 20 + 4
 
   // Colores
   final Map<String, Color> _colorCache = {};
@@ -191,8 +194,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
       ),
       builder: (ctx) {
         return Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: AddMateriaSheet(
             materiaInicial: null,
             onSubmit: (payload) async {
@@ -237,8 +239,7 @@ class _HorarioScreenState extends State<HorarioScreen> {
       ),
       builder: (ctx) {
         return Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: AddMateriaSheet(
             materiaInicial: materia,
             onSubmit: (payload) async {
@@ -304,66 +305,68 @@ class _HorarioScreenState extends State<HorarioScreen> {
   // UI ------------------------------------------------------------
 
   @override
-Widget build(BuildContext context) {
-  final theme = Theme.of(context);
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-  return Scaffold(
-    backgroundColor: const Color(0xFFF5F5F5),
-    appBar: MainAppBar(
-      usuario: _usuario,                 
-      api: widget.api,
-      subtitle: "Así se ve tu semana",
-      onUsuarioActualizado: (nuevoUsuario) {
-        setState(() {
-          _usuario = nuevoUsuario;       
-        });
-      },
-    ),
-    body: Column(
-      children: [
-        const SizedBox(height: 12),
-        _buildModeToggle(theme),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  "Horario escolar",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: MainAppBar(
+        usuario: _usuario,
+        api: widget.api,
+        subtitle: "Así se ve tu semana",
+        onUsuarioActualizado: (nuevoUsuario) {
+          setState(() {
+            _usuario = nuevoUsuario;
+          });
+        },
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            _buildModeToggle(theme),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Horario escolar",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
-                onPressed:
-                    _materias.isEmpty ? null : () => _confirmDeleteAll(),
-              ),
-              InkWell(
-                onTap: _openAddMateriaSheet,
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0066FF),
-                    shape: BoxShape.circle,
+                  IconButton(
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                    onPressed:
+                        _materias.isEmpty ? null : () => _confirmDeleteAll(),
                   ),
-                  child: const Icon(Icons.add, color: Colors.white),
-                ),
+                  InkWell(
+                    onTap: _openAddMateriaSheet,
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0066FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(child: _buildContent()),
+          ],
         ),
-        const SizedBox(height: 8),
-        Expanded(child: _buildContent()),
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   Widget _buildModeToggle(ThemeData theme) {
     return Padding(
@@ -385,16 +388,13 @@ Widget build(BuildContext context) {
     );
   }
 
-// Dentro de _buildModeToggle() de HorarioScreen
   Widget _buildToggleButton(String label, int index) {
     return Expanded(
       child: GestureDetector(
         onTap: () {
           if (index == 0) {
-            // Ya estás en Horario escolar, solo actualiza _modeIndex si lo usas
             setState(() => _modeIndex = 0);
           } else if (index == 1) {
-            // Calendario: misma sección, sin animación de cambio de pantalla
             setState(() => _modeIndex = 1);
             Navigator.of(context).push(
               PageRouteBuilder(
@@ -439,9 +439,8 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildContent() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
     if (_error != null) {
       return Center(
         child: Text(
@@ -452,15 +451,19 @@ Widget build(BuildContext context) {
       );
     }
 
+    // Alto real del contenido: header (día) + timeline
+    final fullHeight = _dayHeaderHeight + _timelineHeight;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 16),
         child: SizedBox(
-          height: _timelineHeight,
+          height: fullHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHourColumn(),
+              _buildHourColumn(), // <- FIX: ya no overflows al final
               const SizedBox(width: 4),
               for (final d in _dias) _buildDayColumn(d),
             ],
@@ -470,23 +473,32 @@ Widget build(BuildContext context) {
     );
   }
 
+  // FIX CLAVE:
+  // Antes: Column con (totalHours + 1) * slotHeight => se pasaba del alto del timeline.
+  // Ahora: Stack con labels posicionados dentro de _timelineHeight (incluye endHour sin reventar).
   Widget _buildHourColumn() {
     final totalHours = _endHour - _startHour;
 
     return Container(
-      margin: const EdgeInsets.only(top: 24),
+      margin: const EdgeInsets.only(top: _dayHeaderHeight),
       width: 52,
-      child: Column(
+      height: _timelineHeight,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
         children: List.generate(totalHours + 1, (i) {
           final hour = _startHour + i;
-          return SizedBox(
-            height: _slotHeight,
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Text(
-                "${hour.toString().padLeft(2, '0')}:00",
-                style: const TextStyle(color: Colors.black54, fontSize: 11),
-              ),
+
+          // Colocamos cada etiqueta en su “línea” exacta.
+          // Y forzamos que la última (endHour) no se salga del contenedor.
+          double top = i * _slotHeight - 6; // centra un poco el texto
+          top = top.clamp(0.0, (_timelineHeight - 14).clamp(0.0, double.infinity));
+
+          return Positioned(
+            top: top,
+            right: 0,
+            child: Text(
+              "${hour.toString().padLeft(2, '0')}:00",
+              style: const TextStyle(color: Colors.black54, fontSize: 11),
             ),
           );
         }),
@@ -548,6 +560,7 @@ Widget build(BuildContext context) {
             child: SizedBox(
               height: totalHours * _slotHeight,
               child: Stack(
+                clipBehavior: Clip.hardEdge,
                 children: [
                   for (final b in bloques)
                     Positioned(
@@ -557,42 +570,7 @@ Widget build(BuildContext context) {
                       height: b.height,
                       child: GestureDetector(
                         onTap: () => _openEditMateriaSheet(b.materia),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: _colorForMateria(b.materia.id),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                b.materia.nombre,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (b.materia.salon.isNotEmpty ||
-                                  b.materia.edificio.isNotEmpty)
-                                Text(
-                                  [
-                                    if (b.materia.edificio.isNotEmpty)
-                                      "Edif. ${b.materia.edificio}",
-                                    if (b.materia.salon.isNotEmpty)
-                                      "Salón ${b.materia.salon}",
-                                  ].join(" · "),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                        child: _buildMateriaBlock(b),
                       ),
                     ),
                 ],
@@ -600,6 +578,95 @@ Widget build(BuildContext context) {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Evita overflow dentro del bloque cuando el height es pequeño.
+  Widget _buildMateriaBlock(_BloqueMateria b) {
+    final bg = _colorForMateria(b.materia.id);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        color: bg,
+        padding: const EdgeInsets.all(6),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final h = c.maxHeight;
+
+            final hasUbicacion =
+                b.materia.salon.isNotEmpty || b.materia.edificio.isNotEmpty;
+
+            final ubicacion = [
+              if (b.materia.edificio.isNotEmpty) "Edif. ${b.materia.edificio}",
+              if (b.materia.salon.isNotEmpty) "Salón ${b.materia.salon}",
+            ].join(" · ");
+
+            if (h < 28) {
+              return Center(
+                child: Text(
+                  b.materia.nombre,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
+                ),
+              );
+            }
+
+            if (h < 44) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Text(
+                  b.materia.nombre,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  b.materia.nombre,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
+                ),
+                if (hasUbicacion)
+                  Text(
+                    ubicacion,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      height: 1.1,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

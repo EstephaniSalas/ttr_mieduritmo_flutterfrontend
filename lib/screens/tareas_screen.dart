@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import 'add_tarea_sheet.dart';
 
 import '../widgets/main_app_bar.dart';
+import '../services/notification_service.dart';
 
 class TareasScreen extends StatefulWidget {
   final Usuario usuario;
@@ -29,6 +30,7 @@ class TareasScreen extends StatefulWidget {
 class _TareasScreenState extends State<TareasScreen> {
   late final TareasService _tareasService;
   late final MateriasService _materiasService;
+  late final NotificationService _notificationService;
 
   late Usuario _usuario;
 
@@ -46,6 +48,7 @@ class _TareasScreenState extends State<TareasScreen> {
     super.initState();
     _tareasService = TareasService(widget.api.dio); //TOKEN
     _materiasService = MateriasService(widget.api.dio);
+    _notificationService = NotificationService(); 
     _usuario = widget.usuario; 
   }
 
@@ -214,201 +217,243 @@ class _TareasScreenState extends State<TareasScreen> {
   }
 
   Future<void> _abrirAddTareaSheet() async {
-    final nueva = await showModalBottomSheet<Tarea?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  final nueva = await showModalBottomSheet<Tarea?>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: AddTareaSheet(
+          tareaInicial: null,
+          materias: _materias,
+          onSubmit: (payload) async {
+            final tarea = await _tareasService.crearTarea(
+              userId: widget.usuario.uid,
+              nombreTarea: payload.nombreTarea,
+              materiaId: payload.materiaId,
+              descripcionTarea: payload.descripcionTarea,
+              tipoTarea: payload.tipoTarea,
+              fechaEntrega: payload.fechaEntrega,
+              horaEntrega24: payload.horaEntrega24,
+            );
+            
+            // 🔔 NUEVO: Programar notificaciones
+            final fechaHoraCompleta = DateTime(
+              payload.fechaEntrega.year,
+              payload.fechaEntrega.month,
+              payload.fechaEntrega.day,
+              int.parse(payload.horaEntrega24.split(':')[0]),
+              int.parse(payload.horaEntrega24.split(':')[1]),
+            );
+            
+            await _notificationService.programarNotificacionesTarea(
+              tareaId: tarea.id,
+              nombreTarea: tarea.nombreTarea,
+              descripcion: tarea.descripcionTarea,
+              fechaHoraEntrega: fechaHoraCompleta,
+              tipoTarea: tarea.tipoTarea,
+            );
+            
+            return tarea;
+          },
+        ),
+      );
+    },
+  );
+
+  if (!mounted) return;
+
+  if (nueva != null) {
+    setState(() {
+      _tareas.add(nueva);
+      _tareas.sort((a, b) {
+        final fa = a.fechaEntregaTarea;
+        final fb = b.fechaEntregaTarea;
+        final c = fa.compareTo(fb);
+        if (c != 0) return c;
+        return a.horaEntregaTarea.compareTo(b.horaEntregaTarea);
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tarea creada con notificaciones programadas ✅'),
+        backgroundColor: AppColors.green,
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: AddTareaSheet(
-            tareaInicial: null,
-            materias: _materias, // más adelante puedes pasar la lista real
-            onSubmit: (payload) async {
-              final tarea = await _tareasService.crearTarea(
-                userId: widget.usuario.uid,
-                nombreTarea: payload.nombreTarea,
-                materiaId: payload.materiaId,
-                descripcionTarea: payload.descripcionTarea,
-                tipoTarea: payload.tipoTarea,
-                fechaEntrega: payload.fechaEntrega,
-                horaEntrega24: payload.horaEntrega24,
-              );
-              return tarea;
-            },
-          ),
-        );
-      },
     );
+  }
+}
 
-    if (!mounted) return;
 
-    if (nueva != null) {
-      setState(() {
-        _tareas.add(nueva);
-        // el backend ya viene ordenado, pero reordenamos por si acaso
-        _tareas.sort((a, b) {
-          final fa = a.fechaEntregaTarea;
-          final fb = b.fechaEntregaTarea;
-          final c = fa.compareTo(fb);
-          if (c != 0) return c;
-          return a.horaEntregaTarea.compareTo(b.horaEntregaTarea);
-        });
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tarea creada correctamente'),
-          backgroundColor: AppColors.green,
+ Future<void> _abrirEditarTareaSheet(Tarea tarea) async {
+  final result = await showModalBottomSheet<dynamic>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: AddTareaSheet(
+          tareaInicial: tarea,
+          materias: _materias,
+          onSubmit: (payload) async {
+            final actualizada = await _tareasService.actualizarTarea(
+              userId: widget.usuario.uid,
+              tareaId: tarea.id,
+              nombreTarea: payload.nombreTarea,
+              materiaId: payload.materiaId,
+              descripcionTarea: payload.descripcionTarea,
+              tipoTarea: payload.tipoTarea,
+              fechaEntrega: payload.fechaEntrega,
+              horaEntrega24: payload.horaEntrega24,
+            );
+            
+            // 🔔 NUEVO: RE-programar notificaciones
+            final fechaHoraCompleta = DateTime(
+              payload.fechaEntrega.year,
+              payload.fechaEntrega.month,
+              payload.fechaEntrega.day,
+              int.parse(payload.horaEntrega24.split(':')[0]),
+              int.parse(payload.horaEntrega24.split(':')[1]),
+            );
+            
+            await _notificationService.programarNotificacionesTarea(
+              tareaId: actualizada.id,
+              nombreTarea: actualizada.nombreTarea,
+              descripcion: actualizada.descripcionTarea,
+              fechaHoraEntrega: fechaHoraCompleta,
+              tipoTarea: actualizada.tipoTarea,
+            );
+            
+            return actualizada;
+          },
+          onDelete: () async {
+            // 🔔 NUEVO: Cancelar notificaciones antes de borrar
+            await _notificationService.cancelarNotificacionesTarea(tarea.id);
+            
+            await _tareasService.eliminarTarea(
+              userId: widget.usuario.uid,
+              tareaId: tarea.id,
+            );
+          },
         ),
       );
-    }
-  }
+    },
+  );
 
-  Future<void> _abrirEditarTareaSheet(Tarea tarea) async {
-    final result = await showModalBottomSheet<dynamic>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  if (!mounted) return;
+
+  if (result is Tarea) {
+    setState(() {
+      final idx = _tareas.indexWhere((t) => t.id == result.id);
+      if (idx != -1) {
+        _tareas[idx] = result;
+      }
+      _tareas.sort((a, b) {
+        final fa = a.fechaEntregaTarea;
+        final fb = b.fechaEntregaTarea;
+        final c = fa.compareTo(fb);
+        if (c != 0) return c;
+        return a.horaEntregaTarea.compareTo(b.horaEntregaTarea);
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tarea actualizada con notificaciones ✅'),
+        backgroundColor: AppColors.green,
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: AddTareaSheet(
-            tareaInicial: tarea,
-            materias: _materias, // más adelante puedes pasar la lista real
-            onSubmit: (payload) async {
-              final actualizada = await _tareasService.actualizarTarea(
-                userId: widget.usuario.uid,
-                tareaId: tarea.id,
-                nombreTarea: payload.nombreTarea,
-                materiaId: payload.materiaId,
-                descripcionTarea: payload.descripcionTarea,
-                tipoTarea: payload.tipoTarea,
-                fechaEntrega: payload.fechaEntrega,
-                horaEntrega24: payload.horaEntrega24,
-                // estatusTarea lo dejamos igual por ahora
-              );
-              return actualizada;
-            },
-            onDelete: () async {
-              await _tareasService.eliminarTarea(
-                userId: widget.usuario.uid,
-                tareaId: tarea.id,
-              );
-              // el sheet hará Navigator.pop('deleted')
-            },
-          ),
-        );
-      },
     );
+  } else if (result == 'deleted') {
+    setState(() {
+      _tareas.removeWhere((t) => t.id == tarea.id);
+    });
 
-    if (!mounted) return;
-
-    if (result is Tarea) {
-      setState(() {
-        final idx = _tareas.indexWhere((t) => t.id == result.id);
-        if (idx != -1) {
-          _tareas[idx] = result;
-        }
-        _tareas.sort((a, b) {
-          final fa = a.fechaEntregaTarea;
-          final fb = b.fechaEntregaTarea;
-          final c = fa.compareTo(fb);
-          if (c != 0) return c;
-          return a.horaEntregaTarea.compareTo(b.horaEntregaTarea);
-        });
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tarea actualizada correctamente'),
-          backgroundColor: AppColors.green,
-        ),
-      );
-    } else if (result == 'deleted') {
-      setState(() {
-        _tareas.removeWhere((t) => t.id == tarea.id);
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tarea eliminada exitosamente'),
-          backgroundColor: AppColors.green,
-        ),
-      );
-    } else {
-      await _cargarTareas();
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tarea y notificaciones eliminadas ✅'),
+        backgroundColor: AppColors.green,
+      ),
+    );
+  } else {
+    await _cargarTareas();
   }
+}
 
   Future<void> _confirmarBorrarTodas() async {
-    if (_tareas.isEmpty) return;
+  if (_tareas.isEmpty) return;
 
-    final confirmada = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Eliminar todas las tareas'),
-          content: const Text(
-            'Se borrarán TODAS las tareas de tu lista.\n\n'
-            'Esta acción es permanente y dejará la sección de tareas vacía.\n'
-            '¿Quieres continuar?',
+  final confirmada = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: const Text('Eliminar todas las tareas'),
+        content: const Text(
+          'Se borrarán TODAS las tareas de tu lista.\n\n'
+          'Esta acción es permanente y dejará la sección de tareas vacía.\n'
+          '¿Quieres continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Eliminar todo',
+              style: TextStyle(color: Colors.red),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text(
-                'Eliminar todo',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmada != true) return;
+
+  try {
+    // 🔔 NUEVO: Cancelar notificaciones de todas las tareas
+    for (var tarea in _tareas) {
+      await _notificationService.cancelarNotificacionesTarea(tarea.id);
+    }
+    
+    await _tareasService.eliminarTodasTareas(
+      userId: widget.usuario.uid,
     );
 
-    if (confirmada != true) return;
+    if (!mounted) return;
+    setState(() {
+      _tareas.clear();
+    });
 
-    try {
-      await _tareasService.eliminarTodasTareas(
-        userId: widget.usuario.uid,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _tareas.clear();
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Se eliminaron todas las tareas'),
-          backgroundColor: AppColors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppColors.red,
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tareas y notificaciones eliminadas ✅'),
+        backgroundColor: AppColors.green,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.red,
+      ),
+    );
   }
+}
 
   String _tituloPorTab() {
     switch (_tabIndex) {

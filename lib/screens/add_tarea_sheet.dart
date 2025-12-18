@@ -29,7 +29,7 @@ class AddTareaSheet extends StatefulWidget {
   final Future<Tarea> Function(AddTareaPayload payload) onSubmit;
   final Future<void> Function()? onDelete;
   final Tarea? tareaInicial;
-  final List<Materia> materias; // para el combo de materias
+  final List<Materia> materias;
 
   const AddTareaSheet({
     super.key,
@@ -70,7 +70,6 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
       _tipoSeleccionado = t.tipoTarea;
       _fechaEntrega = t.fechaEntregaTarea;
 
-      // Buscar la materia coincidente por id o nombre
       if (t.materiaId != null) {
         _materiaSeleccionada =
             _buscarMateriaPorId(widget.materias, t.materiaId!);
@@ -143,12 +142,11 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
 
   Future<void> _seleccionarHora() async {
     final initial = _horaEntrega ?? const TimeOfDay(hour: 12, minute: 0);
-    
-    // Llamamos al reloj personalizado
+
     final selectedTime = await _showCustomTimePicker(
       initialTime: initial,
     );
-    
+
     if (selectedTime == null) return;
 
     setState(() {
@@ -156,210 +154,235 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
     });
   }
 
-  // Método para mostrar el reloj personalizado
-  Future<TimeOfDay?> _showCustomTimePicker({
-    required TimeOfDay initialTime,
-  }) async {
-    int hour = initialTime.hour % 12;
-    if (hour == 0) hour = 12;
-    int minute = initialTime.minute;
-    bool isAm = initialTime.hour < 12;
+  // ✅ MINUTOS 1 EN 1 (0..59). OJO: elimina cualquier redondeo tipo: minute = (minute ~/ 5) * 5;
+Future<TimeOfDay?> _showCustomTimePicker({
+  required TimeOfDay initialTime,
+}) async {
+  int hour = initialTime.hour % 12;
+  if (hour == 0) hour = 12;
 
-    // Asegurarnos que los minutos sean múltiplos de 5 (como en tu selector)
-    minute = (minute ~/ 5) * 5;
+  int minute = initialTime.minute; // <- SIN redondeo
+  bool isAm = initialTime.hour < 12;
 
-    final result = await showDialog<TimeOfDay>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Seleccionar hora', textAlign: TextAlign.center),
-          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: SingleChildScrollView(
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                return SizedBox(
-                  width: double.maxFinite,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Selector de hora y minutos
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Hora
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.arrow_drop_up),
-                                onPressed: () {
-                                  setState(() {
-                                    hour = hour == 12 ? 1 : hour + 1;
-                                  });
-                                },
+  final result = await showDialog<TimeOfDay>(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        title: const Text('Seleccionar hora', textAlign: TextAlign.center),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: SingleChildScrollView(
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Hora
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_up),
+                              onPressed: () {
+                                setState(() {
+                                  hour = hour == 12 ? 1 : hour + 1;
+                                });
+                              },
+                            ),
+                            Container(
+                              width: 70,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 8,
                               ),
-                              Container(
-                                width: 70,
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.blue, width: 2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  hour.toString().padLeft(2, '0'),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.arrow_drop_down),
-                                onPressed: () {
-                                  setState(() {
-                                    hour = hour == 1 ? 12 : hour - 1;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('Hora', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                          
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(':', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          ),
-                          
-                          // Minutos
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.arrow_drop_up),
-                                onPressed: () {
-                                  setState(() {
-                                    minute = minute == 55 ? 0 : minute + 5;
-                                  });
-                                },
-                              ),
-                              Container(
-                                width: 70,
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.blue, width: 2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  minute.toString().padLeft(2, '0'),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.arrow_drop_down),
-                                onPressed: () {
-                                  setState(() {
-                                    minute = minute == 0 ? 55 : minute - 5;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('Min', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 20),
-                      
-                      // Botones AM/PM
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() { 
-                                isAm = true; 
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                               decoration: BoxDecoration(
-                                color: isAm ? Colors.blue : Colors.grey[300],
+                                border: Border.all(color: Colors.blue, width: 2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                'AM',
-                                style: TextStyle(
-                                  fontSize: 16,
+                                hour.toString().padLeft(2, '0'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: isAm ? Colors.white : Colors.grey[700],
                                 ),
                               ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              onPressed: () {
+                                setState(() {
+                                  hour = hour == 1 ? 12 : hour - 1;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Hora',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            ':',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          const SizedBox(width: 20),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() { 
-                                isAm = false; 
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        ),
+
+                        // Minutos (1 en 1)
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_up),
+                              onPressed: () {
+                                setState(() {
+                                  minute = minute == 59 ? 0 : minute + 1;
+                                });
+                              },
+                            ),
+                            Container(
+                              width: 70,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 8,
+                              ),
                               decoration: BoxDecoration(
-                                color: !isAm ? Colors.blue : Colors.grey[300],
+                                border: Border.all(color: Colors.blue, width: 2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                'PM',
-                                style: TextStyle(
-                                  fontSize: 16,
+                                minute.toString().padLeft(2, '0'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: !isAm ? Colors.white : Colors.grey[700],
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // Convertir a formato 24h
-                int hour24 = hour;
-                if (hour == 12) {
-                  hour24 = isAm ? 0 : 12;
-                } else {
-                  hour24 = isAm ? hour : hour + 12;
-                }
-                
-                final selectedTime = TimeOfDay(hour: hour24, minute: minute);
-                Navigator.pop(context, selectedTime);
-              },
-              child: const Text('Aceptar'),
-            ),
-          ],
-        );
-      },
-    );
+                            IconButton(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              onPressed: () {
+                                setState(() {
+                                  minute = minute == 0 ? 59 : minute - 1;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Min',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
 
-    return result;
-  }
+                    const SizedBox(height: 20),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () => setState(() => isAm = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 24,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isAm ? Colors.blue : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'AM',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isAm ? Colors.white : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        GestureDetector(
+                          onTap: () => setState(() => isAm = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 24,
+                            ),
+                            decoration: BoxDecoration(
+                              color: !isAm ? Colors.blue : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'PM',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: !isAm ? Colors.white : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              int hour24 = hour;
+              if (hour == 12) {
+                hour24 = isAm ? 0 : 12;
+              } else {
+                hour24 = isAm ? hour : hour + 12;
+              }
+
+              Navigator.pop(
+                dialogContext,
+                TimeOfDay(hour: hour24, minute: minute),
+              );
+            },
+            child: const Text('Aceptar'),
+          ),
+        ],
+      );
+    },
+  );
+
+  return result;
+}
+
 
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -388,9 +411,7 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
 
     try {
       final tarea = await widget.onSubmit(payload);
-      if (mounted) {
-        Navigator.of(context).pop(tarea);
-      }
+      if (mounted) Navigator.of(context).pop(tarea);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -439,7 +460,6 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Tipo de tarea
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -480,16 +500,13 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                               ],
                               onChanged: (v) {
                                 if (v == null) return;
-                                setState(() {
-                                  _tipoSeleccionado = v;
-                                });
+                                setState(() => _tipoSeleccionado = v);
                               },
                             ),
                           ),
                         ),
                         const SizedBox(height: 12),
 
-                        // Materia
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -523,17 +540,13 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (m) {
-                                setState(() {
-                                  _materiaSeleccionada = m;
-                                });
-                              },
+                              onChanged: (m) =>
+                                  setState(() => _materiaSeleccionada = m),
                             ),
                           ),
                         ),
                         const SizedBox(height: 12),
 
-                        // Nombre tarea
                         _buildTextField(
                           controller: _nombreCtrl,
                           hint: 'Título de la tarea / proyecto / examen',
@@ -543,7 +556,6 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Descripción
                         TextFormField(
                           controller: _descripcionCtrl,
                           maxLines: 4,
@@ -563,16 +575,11 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Fecha y hora
                         Row(
                           children: [
-                            Expanded(
-                              child: _buildFechaButton(),
-                            ),
+                            Expanded(child: _buildFechaButton()),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildHoraButton(),
-                            ),
+                            Expanded(child: _buildHoraButton()),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -593,6 +600,7 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                 ),
               ),
               const SizedBox(height: 12),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -656,9 +664,7 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
 
                             if (confirmed != true) return;
 
-                            setState(() {
-                              _submitting = true;
-                            });
+                            setState(() => _submitting = true);
 
                             try {
                               await widget.onDelete!.call();
@@ -673,17 +679,10 @@ class _AddTareaSheetState extends State<AddTareaSheet> {
                                 ),
                               );
                             } finally {
-                              if (mounted) {
-                                setState(() {
-                                  _submitting = false;
-                                });
-                              }
+                              if (mounted) setState(() => _submitting = false);
                             }
                           },
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                    ),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
                     label: const Text(
                       'Eliminar tarea',
                       style: TextStyle(

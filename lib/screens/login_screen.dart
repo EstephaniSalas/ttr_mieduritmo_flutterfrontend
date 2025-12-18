@@ -1,5 +1,8 @@
+// lib/screens/login_screen.dart - COMPLETO
 import 'package:flutter/material.dart';
 import '../services/usuario_api_service.dart';
+import '../services/notification_service.dart'; // 🔔 NUEVO
+import '../services/notification_sync_service.dart'; // 🔔 NUEVO
 import '../models/usuario.dart';
 import 'home_shell_screen.dart';
 import 'solicitar_cambio_password_screen.dart';
@@ -41,11 +44,30 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // 1. Login normal
       final Usuario usuario = await widget.api.loginUsuario(
         correo: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
+      // 2. 🔔 NUEVO: Sincronizar notificaciones en segundo plano
+      final notificationService = NotificationService();
+      final syncService = NotificationSyncService(
+        widget.api.dio,
+        notificationService,
+      );
+
+      // Sincronizar sin esperar (fire and forget)
+      syncService.sincronizarTodasNotificaciones(usuario.uid).then((_) {
+        print('✅ Notificaciones sincronizadas correctamente');
+      }).catchError((error) {
+        print('⚠️ Error sincronizando notificaciones: $error');
+        // No mostramos error al usuario, las notificaciones son secundarias
+      });
+
+      // 3. Navegar al home
+      if (!mounted) return;
+      
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -56,6 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
@@ -145,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
 
                 const Text(
-                  '“Organiza tu estudio, sigue tu ritmo”',
+                  '"Organiza tu estudio, sigue tu ritmo"',
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
 

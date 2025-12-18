@@ -40,6 +40,10 @@ dependencies:
     sdk: flutter
 
 
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  permission_handler: ^11.3.1
+
 
 
   # The following adds the Cupertino Icons font to your application.
